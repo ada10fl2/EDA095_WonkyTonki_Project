@@ -6,6 +6,9 @@ mainClassName = "com.wonkytonki.server.Main"
 
 repositories {
     mavenCentral()
+    maven {
+        url "http://clojars.org/repo/"
+    }
 }
 
 jar {
@@ -14,7 +17,8 @@ jar {
 }
 
 dependencies {
-    testCompile "junit:junit:4.11"
+    compile "org.clojars.miguno:kryonet-all:2.+"
+    testCompile "junit:junit:+"
 }
 
 task wrapper(type: Wrapper) {
