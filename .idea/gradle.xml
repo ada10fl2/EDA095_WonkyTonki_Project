@@ -9,6 +9,7 @@
           <set>
             <option value="C:\_projects\project_eda095" />
             <option value="C:\_projects\project_eda095\app" />
+            <option value="C:\_projects\project_eda095\server" />
           </set>
         </option>
       </GradleProjectSettings>

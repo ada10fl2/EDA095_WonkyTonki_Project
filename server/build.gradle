@@ -1,0 +1,22 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'application'
+
+mainClassName = "com.wonkytonki.server.Main"
+
+repositories {
+    mavenCentral()
+}
+
+jar {
+    baseName = 'test'
+    version =  '0.0.1'
+}
+
+dependencies {
+    testCompile "junit:junit:4.11"
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '1.11'
+}
