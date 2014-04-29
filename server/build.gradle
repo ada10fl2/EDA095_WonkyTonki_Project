@@ -1,19 +1,34 @@
 apply plugin: 'java'
 apply plugin: 'eclipse'
 apply plugin: 'application'
+apply plugin: 'gradle-one-jar'
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.github.rholder:gradle-one-jar:1.0.4'
+    }
+}
 
 mainClassName = "com.wonkytonki.server.Main"
 
 repositories {
     mavenCentral()
-    maven {
-        url "http://clojars.org/repo/"
+ }
+
+jar {
+    baseName = 'wonky-tonki-server'
+    version =  '0.0.1'
+    manifest {
+        attributes 'Main-Class': 'com.wonkytonki.server.Main'
     }
 }
 
-jar {
-    baseName = 'test'
-    version =  '0.0.1'
+task awesomeJar(type: OneJar) {
+    mainClass = 'com.wonkytonki.server.Main'
+    archiveName = 'com.wonkytonki.server.jar'
 }
 
 dependencies {
