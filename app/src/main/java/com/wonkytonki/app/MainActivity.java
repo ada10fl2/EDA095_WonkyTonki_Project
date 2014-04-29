@@ -19,6 +19,7 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.support.v4.widget.DrawerLayout;
@@ -31,6 +32,7 @@ import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryonet.Client;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
+import com.esotericsoftware.kryonet.util.InputStreamSender;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -58,7 +60,7 @@ public class MainActivity extends Activity
      * Used to store the last screen title. For use in {@link #restoreActionBar()}.
      */
     private CharSequence mTitle;
-     static private BlockingQueue<String> que = new ArrayBlockingQueue<String>(1000);
+     static private BlockingQueue<byte[]> que = new ArrayBlockingQueue<byte[]>(1000);
      static int value = 0;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -144,7 +146,7 @@ public class MainActivity extends Activity
         private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
 
         private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
-        int BufferElements2Rec = 512; // want to play 2048 (2K) since 2 bytes we use only 1024
+        int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
         int BytesPerElement = 2; // 2 bytes in 16bit format
         private AudioRecord recorder = null;
         private Thread recordingThread = null;
@@ -179,44 +181,49 @@ public class MainActivity extends Activity
             AsyncTask task = new AsyncTask() {
                 @Override
                 protected Object doInBackground(Object[] objects) {
-                    final Client client = new Client();
+                    final Client client = new Client(1024*1024, 1024*1024);
                     Kryo k = client.getKryo();
-                    k.register(byte[].class);
+                    k.setRegistrationRequired(false);
                     client.start();
                     try {
-                        client.connect(5000, "192.168.1.5", 54555, 54777);
+                        client.connect(5000, "78.73.132.182", 54555, 54777);
+                        //client.connect(5000, "192.168.1.5", 54555, 54777);
                     }catch (IOException e){
 
                         Log.d("WT", "exception");
                     }
+                    final AudioTrack audioPlayer = new AudioTrack(AudioManager.STREAM_MUSIC, 8000, AudioFormat.CHANNEL_CONFIGURATION_MONO,
+                            AudioFormat.ENCODING_PCM_16BIT, BufferElements2Rec, AudioTrack.MODE_STREAM);
+
+                    if(audioPlayer.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
+                        audioPlayer.play();
 
                     client.addListener(new Listener() {
                         public void received (Connection connection, Object object) {
-                            if (object instanceof String) {
-                                final String response = (String)object;
-                                getActivity().runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        AudioTrack audioPlayer = new AudioTrack(AudioManager.STREAM_MUSIC, 8000, AudioFormat.CHANNEL_CONFIGURATION_MONO,
-                                                    AudioFormat.ENCODING_PCM_16BIT, BufferElements2Rec, AudioTrack.MODE_STREAM);
-                                        try {
-                                        short[] sData = new short[response.getBytes("US-ASCII").length/2];
+                            if (object instanceof byte[]) {
+                                final byte[] response = (byte[])object;
+                                    if(getActivity() != null) {
+                                        getActivity().runOnUiThread(new Runnable() {
+                                            @Override
+                                            public void run() {
 
-                                            ByteBuffer.wrap(response.getBytes("US-ASCII")).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
-                                            audioPlayer.write(sData, 0, sData.length);
-                                        } catch (UnsupportedEncodingException e) {
-                                            e.printStackTrace();
-                                        }
+                                                short[] sData = new short[response.length / 2];
 
-
-
+                                                ByteBuffer.wrap(response).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
+                                                int writtenBytes = 0;
+                                                if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
+                                                    writtenBytes = audioPlayer.write(sData, 0, sData.length);
+                                                } else {
+                                                    Log.v("ERR", "Error");
+                                                }
+                                            }
+                                        });
                                     }
-                                });
 
                             }
                         }
                     });
-                    String s;
+                    byte[] s;
                     try {
 
                         while((s = que.take()) != null){
@@ -238,16 +245,38 @@ public class MainActivity extends Activity
             };
             task.execute();
 
-            button.setOnClickListener(new View.OnClickListener() {
+            button.setOnTouchListener(new View.OnTouchListener() {
                 @Override
-                public void onClick(View view) {
-                    if(!isRecording) {
-                        startRecording();
-                        ((Button)view).setText("Push to stop talking");
-                    }else {
-                        stopRecording();
-                        ((Button)view).setText("Push to talk");
+                public boolean onTouch(View v, MotionEvent event) {
+                    switch (event.getAction() & MotionEvent.ACTION_MASK) {
+                        case MotionEvent.ACTION_DOWN:
+                            v.setPressed(true);
+                            // Start action ...
+                            isRecording = true;
+                            startRecording();
+                            ((Button)v).setText("Push to stop talking");
+                            break;
+                        case MotionEvent.ACTION_UP:
+                        case MotionEvent.ACTION_POINTER_UP:
+                        case MotionEvent.ACTION_OUTSIDE:
+                            v.setPressed(false);
+                            isRecording = false;
+                            stopRecording();
+                            ((Button)v).setText("Push to talk");
+                            break;
+                        case MotionEvent.ACTION_POINTER_DOWN:
+                            break;
+                        case MotionEvent.ACTION_MOVE:
+                            break;
+                        default:
+                            v.setPressed(false);
+                            isRecording = false;
+                            stopRecording();
+                            ((Button)v).setText("Push to talk");
+                            break;
                     }
+
+                    return true;
                 }
             });
             return rootView;
@@ -264,7 +293,7 @@ public class MainActivity extends Activity
             recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                     RECORDER_SAMPLERATE, RECORDER_CHANNELS,
                     RECORDER_AUDIO_ENCODING, BufferElements2Rec * BytesPerElement);
-
+            recorder.stop();
             recorder.startRecording();
 
             isRecording = true;
@@ -280,15 +309,9 @@ public class MainActivity extends Activity
             recordingThread.start();
         }
         private byte[] short2byte(short[] sData) {
-            int shortArrsize = sData.length;
-            byte[] bytes = new byte[shortArrsize * 2];
-
-            for (int i = 0; i < shortArrsize; i++) {
-                bytes[i * 2] = (byte) (sData[i] & 0x00FF);
-                bytes[(i * 2) + 1] = (byte) (sData[i] >> 8);
-                sData[i] = 0;
-            }
-            return bytes;
+            byte[] bytes2 = new byte[sData.length * 2];
+            ByteBuffer.wrap(bytes2).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(sData);
+            return bytes2;
         }
         private void writeAudioDataToFile() {
             // Write the output audio in byte
@@ -316,10 +339,8 @@ public class MainActivity extends Activity
                 if(AudioRecord.ERROR_INVALID_OPERATION != readBytes){
                     byte bData[] = short2byte(sData);
                     try {
-                        que.put(new String(bData, "US-ASCII"));
+                        que.put(bData);
                     } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (UnsupportedEncodingException e) {
                         e.printStackTrace();
                     }
                     //writtenBytes += audioPlayer.write(sData, 0, readBytes);
