@@ -27,3 +27,5 @@ proguard/
 /.nb-gradle/private/
 .nb-gradle/
 .idea/libraries/
+*.iml
+.idea/
