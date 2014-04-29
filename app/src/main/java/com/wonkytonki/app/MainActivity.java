@@ -6,8 +6,15 @@ import android.app.ActionBar;
 import android.app.Fragment;
 import android.app.FragmentManager;
 import android.content.Context;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioRecord;
+import android.media.AudioTrack;
+import android.media.MediaRecorder;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -20,6 +27,22 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryonet.Client;
+import com.esotericsoftware.kryonet.Connection;
+import com.esotericsoftware.kryonet.Listener;
+
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.TimeUnit;
+
 
 public class MainActivity extends Activity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks {
@@ -29,11 +52,14 @@ public class MainActivity extends Activity
      */
     private NavigationDrawerFragment mNavigationDrawerFragment;
 
+
+
     /**
      * Used to store the last screen title. For use in {@link #restoreActionBar()}.
      */
     private CharSequence mTitle;
-
+     static private BlockingQueue<String> que = new ArrayBlockingQueue<String>(1000);
+     static int value = 0;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -113,6 +139,16 @@ public class MainActivity extends Activity
          * The fragment argument representing the section number for this
          * fragment.
          */
+        private static final int RECORDER_SAMPLERATE = 8000;
+
+        private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
+
+        private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+        int BufferElements2Rec = 512; // want to play 2048 (2K) since 2 bytes we use only 1024
+        int BytesPerElement = 2; // 2 bytes in 16bit format
+        private AudioRecord recorder = null;
+        private Thread recordingThread = null;
+        private boolean isRecording = false;
         private static final String ARG_SECTION_NUMBER = "section_number";
 
         /**
@@ -134,12 +170,84 @@ public class MainActivity extends Activity
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                 Bundle savedInstanceState) {
             View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-            TextView button = (TextView) rootView.findViewById(R.id.talk);
+
+            int bufferSize = AudioRecord.getMinBufferSize(RECORDER_SAMPLERATE,
+                    RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
+
+            final Button button = (Button) rootView.findViewById(R.id.talk);
+            final TextView tv = (TextView)rootView.findViewById(R.id.data);
+            AsyncTask task = new AsyncTask() {
+                @Override
+                protected Object doInBackground(Object[] objects) {
+                    final Client client = new Client();
+                    Kryo k = client.getKryo();
+                    k.register(byte[].class);
+                    client.start();
+                    try {
+                        client.connect(5000, "192.168.1.5", 54555, 54777);
+                    }catch (IOException e){
+
+                        Log.d("WT", "exception");
+                    }
+
+                    client.addListener(new Listener() {
+                        public void received (Connection connection, Object object) {
+                            if (object instanceof String) {
+                                final String response = (String)object;
+                                getActivity().runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        AudioTrack audioPlayer = new AudioTrack(AudioManager.STREAM_MUSIC, 8000, AudioFormat.CHANNEL_CONFIGURATION_MONO,
+                                                    AudioFormat.ENCODING_PCM_16BIT, BufferElements2Rec, AudioTrack.MODE_STREAM);
+                                        try {
+                                        short[] sData = new short[response.getBytes("US-ASCII").length/2];
+
+                                            ByteBuffer.wrap(response.getBytes("US-ASCII")).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
+                                            audioPlayer.write(sData, 0, sData.length);
+                                        } catch (UnsupportedEncodingException e) {
+                                            e.printStackTrace();
+                                        }
+
+
+
+                                    }
+                                });
+
+                            }
+                        }
+                    });
+                    String s;
+                    try {
+
+                        while((s = que.take()) != null){
+                         //   int pos = 0;
+                         //   while(pos < s.length()- s.length()/8)
+                          //  {
+
+                                client.sendTCP(s);
+                               // pos += s.length()/8+1;
+                          //  }
+
+                        }
+                    } catch (InterruptedException e) {
+
+                    }
+                    return null;
+                }
+
+            };
+            task.execute();
+
             button.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-          
-
+                    if(!isRecording) {
+                        startRecording();
+                        ((Button)view).setText("Push to stop talking");
+                    }else {
+                        stopRecording();
+                        ((Button)view).setText("Push to talk");
+                    }
                 }
             });
             return rootView;
@@ -150,6 +258,86 @@ public class MainActivity extends Activity
             super.onAttach(activity);
             ((MainActivity) activity).onSectionAttached(
                     getArguments().getInt(ARG_SECTION_NUMBER));
+        }
+        private void startRecording() {
+
+            recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
+                    RECORDER_SAMPLERATE, RECORDER_CHANNELS,
+                    RECORDER_AUDIO_ENCODING, BufferElements2Rec * BytesPerElement);
+
+            recorder.startRecording();
+
+            isRecording = true;
+
+            recordingThread = new Thread(new Runnable() {
+
+                public void run() {
+
+                    writeAudioDataToFile();
+
+                }
+            }, "AudioRecorder Thread");
+            recordingThread.start();
+        }
+        private byte[] short2byte(short[] sData) {
+            int shortArrsize = sData.length;
+            byte[] bytes = new byte[shortArrsize * 2];
+
+            for (int i = 0; i < shortArrsize; i++) {
+                bytes[i * 2] = (byte) (sData[i] & 0x00FF);
+                bytes[(i * 2) + 1] = (byte) (sData[i] >> 8);
+                sData[i] = 0;
+            }
+            return bytes;
+        }
+        private void writeAudioDataToFile() {
+            // Write the output audio in byte
+
+            short sData[] = new short[BufferElements2Rec];
+
+      //
+
+        //    if(audioPlayer.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
+          //      audioPlayer.play();
+            while (isRecording) {
+                // gets the voice output from microphone to byte format
+                int readBytes = recorder.read(sData, 0, BufferElements2Rec);
+           /* System.out.println("Short wirting to file" + sData.toString());
+            try {
+                // writes the data to file from buffer stores the voice buffer
+
+
+                os.write(bData, 0, BufferElements2Rec * BytesPerElement);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }*/
+                int writtenBytes = 0;
+                if(AudioRecord.ERROR_INVALID_OPERATION != readBytes){
+                    byte bData[] = short2byte(sData);
+                    try {
+                        que.put(new String(bData, "US-ASCII"));
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (UnsupportedEncodingException e) {
+                        e.printStackTrace();
+                    }
+                    //writtenBytes += audioPlayer.write(sData, 0, readBytes);
+                }
+            }
+        }
+        private void stopRecording() {
+            // stops the recording activity
+            if (null != recorder) {
+                isRecording = false;
+
+
+                recorder.stop();
+                recorder.release();
+
+                recorder = null;
+                recordingThread = null;
+            }
         }
     }
 
