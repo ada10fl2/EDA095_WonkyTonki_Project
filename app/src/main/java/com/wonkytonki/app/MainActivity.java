@@ -220,13 +220,13 @@ public class MainActivity extends Activity
                     try {
 
                         while((s = que.take()) != null){
-                            int pos = 0;
-                            while(pos < s.length()- s.length()/8)
-                            {
+                         //   int pos = 0;
+                         //   while(pos < s.length()- s.length()/8)
+                          //  {
 
-                                client.sendTCP(s.substring(pos, pos +s.length()/8));
-                                pos += s.length()/8+1;
-                            }
+                                client.sendTCP(s);
+                               // pos += s.length()/8+1;
+                          //  }
 
                         }
                     } catch (InterruptedException e) {
