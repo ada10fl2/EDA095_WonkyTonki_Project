@@ -18,6 +18,13 @@ android {
     }
 }
 
+repositories {
+    mavenCentral()
+    maven {
+        url "http://clojars.org/repo/"
+    }
+}
+
 dependencies {
     compile 'com.android.support:support-v4:19.+'
     compile "org.clojars.miguno:kryonet-all:2.+"
