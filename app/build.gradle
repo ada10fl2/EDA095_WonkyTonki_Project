@@ -20,5 +20,6 @@ android {
 
 dependencies {
     compile 'com.android.support:support-v4:19.+'
+    compile "org.clojars.miguno:kryonet-all:2.+"
     compile fileTree(dir: 'libs', include: ['*.jar'])
 }
