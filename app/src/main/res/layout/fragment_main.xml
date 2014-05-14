@@ -15,7 +15,7 @@
     <Button
         android:layout_width="300dp"
         android:layout_height="300dp"
-        android:text="Push to talk"
+        android:text="Connecting..."
         android:id="@+id/talk"
         android:layout_centerInParent="true"/>
 

@@ -72,8 +72,7 @@ public class MainActivity extends Activity
         mTitle = getTitle();
 
         // Set up the drawer.
-        mNavigationDrawerFragment.setUp(
-                R.id.navigation_drawer,
+        mNavigationDrawerFragment.setUp(R.id.navigation_drawer,
                 (DrawerLayout) findViewById(R.id.drawer_layout));
     }
 
@@ -142,12 +141,11 @@ public class MainActivity extends Activity
          * fragment.
          */
         private static final int RECORDER_SAMPLERATE = 8000;
-
         private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
-
         private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
-        int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
-        int BytesPerElement = 2; // 2 bytes in 16bit format
+        private static final int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
+        private static final int BytesPerElement = 2; // 2 bytes in 16bit format
+
         private AudioRecord recorder = null;
         private Thread recordingThread = null;
         private boolean isRecording = false;
@@ -177,7 +175,9 @@ public class MainActivity extends Activity
                     RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
 
             final Button button = (Button) rootView.findViewById(R.id.talk);
+            button.setEnabled(false);
             final TextView tv = (TextView)rootView.findViewById(R.id.data);
+
             AsyncTask task = new AsyncTask() {
                 @Override
                 protected Object doInBackground(Object[] objects) {
@@ -199,6 +199,29 @@ public class MainActivity extends Activity
                         audioPlayer.play();
 
                     client.addListener(new Listener() {
+                        @Override
+                        public void connected(Connection connection) {
+                            super.connected(connection);
+                            getActivity().runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    button.setText("Connected!\nPush to talk!");
+                                    button.setEnabled(true);
+                                }
+                            });
+                        }
+
+                        @Override
+                        public void disconnected(Connection connection) {
+                            super.disconnected(connection);
+                            getActivity().runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    button.setText("Disconnected! :(");
+                                }
+                            });
+                        }
+
                         public void received (Connection connection, Object object) {
                             if (object instanceof byte[]) {
                                 final byte[] response = (byte[])object;
@@ -250,19 +273,19 @@ public class MainActivity extends Activity
                 public boolean onTouch(View v, MotionEvent event) {
                     switch (event.getAction() & MotionEvent.ACTION_MASK) {
                         case MotionEvent.ACTION_DOWN:
-                            v.setPressed(true);
+                            button.setPressed(true);
                             // Start action ...
                             isRecording = true;
                             startRecording();
-                            ((Button)v).setText("Push to stop talking");
+                            button.setText("Push to stop talking");
                             break;
                         case MotionEvent.ACTION_UP:
                         case MotionEvent.ACTION_POINTER_UP:
                         case MotionEvent.ACTION_OUTSIDE:
-                            v.setPressed(false);
+                            button.setPressed(false);
                             isRecording = false;
                             stopRecording();
-                            ((Button)v).setText("Push to talk");
+                            button.setText("Push to talk");
                             break;
                         case MotionEvent.ACTION_POINTER_DOWN:
                             break;
@@ -272,7 +295,7 @@ public class MainActivity extends Activity
                             v.setPressed(false);
                             isRecording = false;
                             stopRecording();
-                            ((Button)v).setText("Push to talk");
+                            button.setText("Push to talk");
                             break;
                     }
 
