@@ -36,20 +36,14 @@ public class Main {
                 if(object instanceof AudioFrame) {
                     AudioFrame af = (AudioFrame) object;
                     if ( af.time > System.currentTimeMillis() - 1000) {
+                        af.users = pool.size();
                         for (Connection peer : pool) {
                             if (peer.getRemoteAddressTCP().equals(connection.getRemoteAddressTCP())) continue;
                             System.out.println("Sending reply to "+peer.getRemoteAddressTCP());
-                            peer.sendTCP(object);
+                            peer.sendTCP(af);
                         }
                     } else {
                         System.out.println("Discarding old audio frame: "+af.time);
-                    }
-                }
-                if(object instanceof byte[]){
-                    for (Connection peer : pool) {
-                        if (peer.getRemoteAddressTCP().equals(connection.getRemoteAddressTCP())) continue;
-                        System.out.println("Sending reply to "+peer.getRemoteAddressTCP());
-                        peer.sendTCP(object);
                     }
                 }
             }
