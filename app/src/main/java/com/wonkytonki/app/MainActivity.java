@@ -145,16 +145,7 @@ public class MainActivity extends ActionBarActivity {
                     }
                 });
 
-                try {
-                    client.connect(5000, "78.73.132.182", 54555, 54777);
-                }catch (IOException e){
-                    try {
-                        client.connect(5000, "192.168.1.5", 54555, 54777);
-                    } catch (IOException e1) {
-                        Log.d(LOG_TAG, "Exception:mainserver", e);
-                        Log.d(LOG_TAG, "Exception:localserver", e1);
-                    }
-                }
+                connectClient(client);
 
                 byte[] bytes;
                 try {
@@ -178,6 +169,7 @@ public class MainActivity extends ActionBarActivity {
                         mButton.setPressed(true);
                         // Start action ...
                         isRecording = true;
+
                         startRecording();
                         mTextViewBottom.setText("Release to stop talking");
                         break;
@@ -204,7 +196,22 @@ public class MainActivity extends ActionBarActivity {
             }
         });
     }
+    private boolean connectClient(Client client){
+        try {
+            client.connect(5000, "78.73.132.182", 54555, 54777);
+            return true;
+        }catch (IOException e){
+            try {
+                client.connect(5000, "192.168.1.5", 54555, 54777);
+                return true;
+            } catch (IOException e1) {
+                Log.d(LOG_TAG, "Exception:mainserver", e);
+                Log.d(LOG_TAG, "Exception:localserver", e1);
+                return false;
+            }
+        }
 
+    }
     private void startRecording() {
         recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                 RECORDER_SAMPLERATE, RECORDER_CHANNELS,
@@ -256,11 +263,12 @@ public class MainActivity extends ActionBarActivity {
         }
     }
     private boolean checkData(short[] arr){
+        //return true;
         int i = 0;
         for(short s : arr){
             i += s;
         }
-        return i < 100 ? false:true;
+        return i > 10;
     }
     private void stopRecording() {
         // stops the recording activity
