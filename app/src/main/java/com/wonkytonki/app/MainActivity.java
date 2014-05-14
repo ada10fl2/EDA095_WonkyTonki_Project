@@ -12,6 +12,7 @@ import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -40,7 +41,7 @@ public class MainActivity extends ActionBarActivity {
     private Thread recordingThread = null;
     private boolean isRecording = false;
     private static final String ARG_SECTION_NUMBER = "section_number";
-    private ImageButton mButton;
+    private Button mButton;
     private TextView mTextView;
 
 
@@ -55,7 +56,7 @@ public class MainActivity extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mButton = (ImageButton) findViewById(R.id.btn_talk);
+        mButton = (Button) findViewById(R.id.btn_talk);
         mTextView = (TextView) findViewById(R.id.txt_main_bottom);
 
         setupActionBar();
@@ -120,22 +121,29 @@ public class MainActivity extends ActionBarActivity {
                     }
 
                     public void received (Connection connection, Object object) {
+                        byte[] data = new byte[0];
                         if (object instanceof byte[]) {
-                            final byte[] response = (byte[])object;
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    short[] sData = new short[response.length / 2];
-                                    ByteBuffer.wrap(response).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
-                                    int writtenBytes = 0;
-                                    if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
-                                        writtenBytes = audioPlayer.write(sData, 0, sData.length);
-                                    } else {
-                                        Log.e(LOG_TAG, "Error");
-                                    }
-                                }
-                            });
+                            data = (byte[]) object;
+                        } else if(object instanceof AudioFrame) {
+                            AudioFrame af = (AudioFrame) object;
+                            data = af.bytes;
                         }
+
+                        final byte[] response = data;
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                short[] sData = new short[response.length / 2];
+                                ByteBuffer.wrap(response).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
+                                int writtenBytes = 0;
+                                if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
+                                    writtenBytes = audioPlayer.write(sData, 0, sData.length);
+                                    audioPlayer.flush();
+                                } else {
+                                    Log.e(LOG_TAG, "Error");
+                                }
+                            }
+                        });
                     }
                 });
 
@@ -260,7 +268,7 @@ public class MainActivity extends ActionBarActivity {
         for(short s : arr){
             i += s;
         }
-        return i < 100?false:true;
+        return i < 100 ? false:true;
     }
     private void stopRecording() {
         // stops the recording activity
