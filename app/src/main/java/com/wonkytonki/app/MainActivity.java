@@ -160,7 +160,7 @@ public class MainActivity extends ActionBarActivity {
                 byte[] bytes;
                 try {
                     while((bytes = que.take()) != null){
-                        mClient.sendTCP(bytes);
+                        mClient.sendTCP(new AudioFrame(0, System.currentTimeMillis(), bytes));
                     }
                 } catch (InterruptedException e) {}
                 return null;
