@@ -9,10 +9,8 @@
     android:paddingBottom="@dimen/activity_vertical_margin"
     tools:context=".MainActivity">
 
-    <ImageButton
-        android:src="@drawable/ic_launcher"
-        android:background="#0000"
-        android:scaleType="fitCenter"
+    <Button
+        android:background="@drawable/button_background"
         android:layout_width="300dp"
         android:layout_height="300dp"
         android:id="@+id/btn_talk"
@@ -21,6 +19,7 @@
     <TextView
         android:id="@+id/txt_main_bottom"
         android:text="Connecting..."
+        android:textSize="40sp"
         android:gravity="center"
         android:layout_alignParentBottom="true"
         android:layout_width="match_parent"
