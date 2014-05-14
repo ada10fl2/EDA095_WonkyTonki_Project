@@ -66,6 +66,7 @@ public class MainActivity extends ActionBarActivity {
         mClient.getKryo().setRegistrationRequired(false);
 
         setupActionBar();
+        setTitle("Wonky Tonki");
     }
 
     public void setupActionBar() {
