@@ -32,10 +32,10 @@ public class Main {
             
             @Override
             public void received (Connection connection, Object object) {
-                System.out.println(".");
+                System.out.print(".");
                 if(object instanceof AudioFrame) {
                     AudioFrame af = (AudioFrame) object;
-                    if ( af.time > System.currentTimeMillis() - 1000) {
+                    if (true || af.time > System.currentTimeMillis() - 1000) {
                         af.users = pool.size();
                         for (Connection peer : pool) {
                             if (peer.getRemoteAddressTCP().equals(connection.getRemoteAddressTCP())) continue;
