@@ -214,14 +214,29 @@ public class MainActivity extends ActionBarActivity {
 
     private boolean connectClient(){
         try {
-            mTextViewBottom.setText("Connecting...");
-            mButtonForceReconnect.setEnabled(false);
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mTextViewBottom.setText("Connecting...");
+                    mButtonForceReconnect.setEnabled(false);
+                }
+            });
             mClient.connect(5000, "78.73.132.182", 54555, 54777);
-            mTextViewBottom.setText("Connected...");
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mTextViewBottom.setText("Connected...");
+                }
+            });
             return true;
         }catch (IOException e){
-            mTextViewBottom.setText("Connection failed");
-            mButtonForceReconnect.setEnabled(true);
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mTextViewBottom.setText("Connection failed");
+                    mButtonForceReconnect.setEnabled(true);
+                }
+            });
             Log.d(LOG_TAG, "Exception:mainserver", e);
             return false;
         }
