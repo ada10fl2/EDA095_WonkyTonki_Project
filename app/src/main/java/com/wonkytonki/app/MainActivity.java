@@ -243,17 +243,25 @@ public class MainActivity extends ActionBarActivity {
             /* System.out.println("Short wirting to file" + sData.toString()); */
             int writtenBytes = 0;
             if(AudioRecord.ERROR_INVALID_OPERATION != readBytes){
-                byte bData[] = short2byte(sData);
-                try {
-                    que.put(bData);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                if(checkData(sData)) {
+                    byte bData[] = short2byte(sData);
+                    try {
+                        que.put(bData);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
                 //writtenBytes += audioPlayer.write(sData, 0, readBytes);
             }
         }
     }
-
+    private boolean checkData(short[] arr){
+        int i = 0;
+        for(short s : arr){
+            i += s;
+        }
+        return i < 100?false:true;
+    }
     private void stopRecording() {
         // stops the recording activity
         if (null != recorder) {
