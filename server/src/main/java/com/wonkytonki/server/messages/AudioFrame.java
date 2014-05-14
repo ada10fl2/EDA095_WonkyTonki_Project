@@ -6,4 +6,5 @@ package com.wonkytonki.server.messages;
 public class AudioFrame {
     public long time;
     public byte[] bytes;
+    public int users;
 }
