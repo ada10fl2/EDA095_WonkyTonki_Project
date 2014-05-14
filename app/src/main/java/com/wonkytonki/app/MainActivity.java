@@ -35,6 +35,7 @@ public class MainActivity extends ActionBarActivity {
     private static final int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
     private static final int BytesPerElement = 2; // 2 bytes in 16bit format
     public static final String LOG_TAG = "WT";
+    public static final String SERVER_ADDRESS = "192.168.1.45";
 
     private AudioRecord recorder = null;
     private Thread recordingThread = null;
@@ -125,18 +126,7 @@ public class MainActivity extends ActionBarActivity {
                                 mButtonForceReconnect.setEnabled(true);
                             }
                         });
-                        handler.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                new AsyncTask(){
-                                    @Override
-                                    protected Object doInBackground(Object[] params) {
-                                        connectClient();
-                                        return null;
-                                    }
-                                }.execute();
-                            }
-                        }, 1000);
+                        connectClient();
                     }
 
                     public void received (Connection connection, Object object) {
@@ -166,7 +156,11 @@ public class MainActivity extends ActionBarActivity {
                 byte[] bytes;
                 try {
                     while((bytes = que.take()) != null){
-                        mClient.sendTCP(new AudioFrame(0, System.currentTimeMillis(), bytes));
+                        AudioFrame frame = new AudioFrame();
+                        frame.bytes = bytes;
+                        frame.time = System.currentTimeMillis();
+                        frame.users = -1;
+                        mClient.sendTCP(frame);
                     }
                 } catch (InterruptedException e) {}
                 return null;
@@ -234,7 +228,7 @@ public class MainActivity extends ActionBarActivity {
                     mButtonForceReconnect.setEnabled(false);
                 }
             });
-            mClient.connect(5000, "78.73.132.182", 54555, 54777);
+            mClient.connect(5000, SERVER_ADDRESS, 54555, 54777);
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
