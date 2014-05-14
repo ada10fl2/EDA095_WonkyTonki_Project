@@ -13,7 +13,6 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
-import android.widget.ImageButton;
 import android.widget.TextView;
 
 import com.esotericsoftware.kryo.Kryo;
@@ -40,24 +39,26 @@ public class MainActivity extends ActionBarActivity {
     private AudioRecord recorder = null;
     private Thread recordingThread = null;
     private boolean isRecording = false;
-    private static final String ARG_SECTION_NUMBER = "section_number";
+
     private Button mButton;
-    private TextView mTextView;
+    private TextView mTextViewBottom;
 
-
-    /**
-     * Used to store the last screen title. For use in {@link #setupActionBar()}.
-     */
     private CharSequence mTitle;
-     static private BlockingQueue<byte[]> que = new ArrayBlockingQueue<byte[]>(1000);
-     static int value = 0;
+    private Button mButtonForceReconnect;
+    private TextView mTextViewTop;
+
+    private static BlockingQueue<byte[]> que = new ArrayBlockingQueue<byte[]>(1000);
+    private static int value = 0;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mButton = (Button) findViewById(R.id.btn_talk);
-        mTextView = (TextView) findViewById(R.id.txt_main_bottom);
+        mButton = (Button) findViewById(R.id.main_btn_talk);
+        mTextViewBottom = (TextView) findViewById(R.id.main_txt_bottom);
+        mTextViewTop = (TextView) findViewById(R.id.main_txt_top);
+        mButtonForceReconnect = (Button) findViewById(R.id.main_btn_reconnect);
 
         setupActionBar();
     }
@@ -103,7 +104,7 @@ public class MainActivity extends ActionBarActivity {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                mTextView.setText("Connected!\nPush to talk!");
+                                mTextViewBottom.setText("Connected!\nPush to talk!");
                                 mButton.setEnabled(true);
                             }
                         });
@@ -115,7 +116,7 @@ public class MainActivity extends ActionBarActivity {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                mTextView.setText("Disconnected! :(");
+                                mTextViewBottom.setText("Disconnected! :(");
                             }
                         });
                     }
@@ -124,9 +125,6 @@ public class MainActivity extends ActionBarActivity {
                         byte[] data = new byte[0];
                         if (object instanceof byte[]) {
                             data = (byte[]) object;
-                        } else if(object instanceof AudioFrame) {
-                            AudioFrame af = (AudioFrame) object;
-                            data = af.bytes;
                         }
 
                         final byte[] response = data;
@@ -161,13 +159,7 @@ public class MainActivity extends ActionBarActivity {
                 byte[] bytes;
                 try {
                     while((bytes = que.take()) != null){
-                        //   int pos = 0;
-                        //   while(pos < bytes.length()- bytes.length()/8)
-                        //  {
                         client.sendTCP(bytes);
-                        // pos += bytes.length()/8+1;
-                        //  }
-
                     }
                 } catch (InterruptedException e) {
 
@@ -187,7 +179,7 @@ public class MainActivity extends ActionBarActivity {
                         // Start action ...
                         isRecording = true;
                         startRecording();
-                        mTextView.setText("Release to stop talking");
+                        mTextViewBottom.setText("Release to stop talking");
                         break;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_POINTER_UP:
@@ -195,7 +187,7 @@ public class MainActivity extends ActionBarActivity {
                         mButton.setPressed(false);
                         isRecording = false;
                         stopRecording();
-                        mTextView.setText("Push to talk");
+                        mTextViewBottom.setText("Push to talk");
                         break;
                     case MotionEvent.ACTION_POINTER_DOWN:
                         break;
@@ -205,7 +197,7 @@ public class MainActivity extends ActionBarActivity {
                         v.setPressed(false);
                         isRecording = false;
                         stopRecording();
-                        mTextView.setText("Push to talk");
+                        mTextViewBottom.setText("Push to talk");
                         break;
                 }
                 return true;

@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<inset xmlns:android="http://schemas.android.com/apk/res/android"
+<scale xmlns:android="http://schemas.android.com/apk/res/android"
     android:drawable="@drawable/ic_launcher"
-    android:insetTop="30dp"
-    android:insetBottom="30dp"
-    android:insetLeft="30dp"
-    android:insetRight="30dp"
-/>
+    android:scaleGravity="center"
+    android:scaleHeight="60%"
+    android:scaleWidth="60%">
+</scale>
