@@ -219,36 +219,42 @@ public class MainActivity extends ActionBarActivity {
     }
 
     private boolean connectClient() {
-        try {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    mTextViewBottom.setText("Connecting...");
-                    mButtonTalk.setEnabled(false);
-                    mButtonForceReconnect.setEnabled(false);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mTextViewBottom.setText("Connecting...");
+                mButtonTalk.setEnabled(false);
+                mButtonForceReconnect.setEnabled(false);
+            }
+        });
+        new AsyncTask(){
+            @Override
+            protected Object doInBackground(Object[] params) {
+                try {
+                    mClient.connect(5000, SERVER_ADDRESS, 54555, 54777);
+                } catch (IOException e) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mTextViewBottom.setText("Connection failed");
+                            mButtonTalk.setEnabled(false);
+                            mButtonForceReconnect.setEnabled(true);
+                        }
+                    });
+                    Log.d(LOG_TAG, "Exception:mainserver", e);
                 }
-            });
-            mClient.connect(5000, SERVER_ADDRESS, 54555, 54777);
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    mTextViewBottom.setText("Connected");
-                    mButtonTalk.setEnabled(true);
-                }
-            });
-            return true;
-        }catch (IOException e){
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    mTextViewBottom.setText("Connection failed");
-                    mButtonTalk.setEnabled(false);
-                    mButtonForceReconnect.setEnabled(true);
-                }
-            });
-            Log.d(LOG_TAG, "Exception:mainserver", e);
-            return false;
-        }
+                return null;
+            }
+        }.execute();
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mTextViewBottom.setText("Connected");
+                mButtonTalk.setEnabled(true);
+            }
+        });
+        return true;
+
     }
 
     private void startRecording() {
