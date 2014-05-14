@@ -94,6 +94,8 @@ public class MainActivity extends ActionBarActivity {
             audioPlayer.play();
         }
 
+        final Handler handler = new Handler();
+
         mAudioFrame = new AudioFrame();
         AsyncTask task = new AsyncTask() {
             @Override
@@ -123,7 +125,7 @@ public class MainActivity extends ActionBarActivity {
                                 mButtonForceReconnect.setEnabled(true);
                             }
                         });
-                        new Handler().postDelayed(new Runnable() {
+                        handler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
                                 connectClient();
@@ -212,17 +214,16 @@ public class MainActivity extends ActionBarActivity {
 
     private boolean connectClient(){
         try {
+            mTextViewBottom.setText("Connecting...");
+            mButtonForceReconnect.setEnabled(false);
             mClient.connect(5000, "78.73.132.182", 54555, 54777);
+            mTextViewBottom.setText("Connected...");
             return true;
         }catch (IOException e){
-            try {
-                mClient.connect(5000, "192.168.1.5", 54555, 54777);
-                return true;
-            } catch (IOException e1) {
-                Log.d(LOG_TAG, "Exception:mainserver", e);
-                Log.d(LOG_TAG, "Exception:localserver", e1);
-                return false;
-            }
+            mTextViewBottom.setText("Connection failed");
+            mButtonForceReconnect.setEnabled(true);
+            Log.d(LOG_TAG, "Exception:mainserver", e);
+            return false;
         }
     }
 
