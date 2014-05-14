@@ -40,8 +40,8 @@ public class MainActivity extends ActionBarActivity {
     private Thread recordingThread = null;
     private boolean isRecording = false;
     private static final String ARG_SECTION_NUMBER = "section_number";
-    private ImageButton button;
-    private TextView tv;
+    private ImageButton mButton;
+    private TextView mTextView;
 
 
     /**
@@ -55,8 +55,8 @@ public class MainActivity extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        button = (ImageButton) findViewById(R.id.btn_talk);
-        tv = (TextView) findViewById(R.id.txt_main_bottom);
+        mButton = (ImageButton) findViewById(R.id.btn_talk);
+        mTextView = (TextView) findViewById(R.id.txt_main_bottom);
 
         setupActionBar();
     }
@@ -77,7 +77,7 @@ public class MainActivity extends ActionBarActivity {
     private void setup(){
         int bufferSize = AudioRecord.getMinBufferSize(RECORDER_SAMPLERATE, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
 
-        button.setEnabled(false);
+        mButton.setEnabled(false);
 
         final AudioTrack audioPlayer = new AudioTrack(AudioManager.STREAM_MUSIC, 8000, AudioFormat.CHANNEL_CONFIGURATION_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, BufferElements2Rec, AudioTrack.MODE_STREAM);
@@ -102,8 +102,8 @@ public class MainActivity extends ActionBarActivity {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                tv.setText("Connected!\nPush to talk!");
-                                button.setEnabled(true);
+                                mTextView.setText("Connected!\nPush to talk!");
+                                mButton.setEnabled(true);
                             }
                         });
                     }
@@ -114,7 +114,7 @@ public class MainActivity extends ActionBarActivity {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                tv.setText("Disconnected! :(");
+                                mTextView.setText("Disconnected! :(");
                             }
                         });
                     }
@@ -123,17 +123,17 @@ public class MainActivity extends ActionBarActivity {
                         if (object instanceof byte[]) {
                             final byte[] response = (byte[])object;
                             runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        short[] sData = new short[response.length / 2];
-                                        ByteBuffer.wrap(response).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
-                                        int writtenBytes = 0;
-                                        if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
-                                            writtenBytes = audioPlayer.write(sData, 0, sData.length);
-                                        } else {
-                                            Log.e(LOG_TAG, "Error");
-                                        }
+                                @Override
+                                public void run() {
+                                    short[] sData = new short[response.length / 2];
+                                    ByteBuffer.wrap(response).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
+                                    int writtenBytes = 0;
+                                    if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
+                                        writtenBytes = audioPlayer.write(sData, 0, sData.length);
+                                    } else {
+                                        Log.e(LOG_TAG, "Error");
                                     }
+                                }
                             });
                         }
                     }
@@ -148,7 +148,6 @@ public class MainActivity extends ActionBarActivity {
                         Log.d(LOG_TAG, "Exception:mainserver", e);
                         Log.d(LOG_TAG, "Exception:localserver", e1);
                     }
-
                 }
 
                 byte[] bytes;
@@ -157,7 +156,7 @@ public class MainActivity extends ActionBarActivity {
                         //   int pos = 0;
                         //   while(pos < bytes.length()- bytes.length()/8)
                         //  {
-                        client.sendTCP(new AudioFrame(System.currentTimeMillis(), bytes));
+                        client.sendTCP(bytes);
                         // pos += bytes.length()/8+1;
                         //  }
 
@@ -171,24 +170,24 @@ public class MainActivity extends ActionBarActivity {
         };
         task.execute();
 
-        button.setOnTouchListener(new View.OnTouchListener() {
+        mButton.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
                     case MotionEvent.ACTION_DOWN:
-                        button.setPressed(true);
+                        mButton.setPressed(true);
                         // Start action ...
                         isRecording = true;
                         startRecording();
-                        tv.setText("Push to stop talking");
+                        mTextView.setText("Release to stop talking");
                         break;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_POINTER_UP:
                     case MotionEvent.ACTION_OUTSIDE:
-                        button.setPressed(false);
+                        mButton.setPressed(false);
                         isRecording = false;
                         stopRecording();
-                        tv.setText("Push to talk");
+                        mTextView.setText("Push to talk");
                         break;
                     case MotionEvent.ACTION_POINTER_DOWN:
                         break;
@@ -198,7 +197,7 @@ public class MainActivity extends ActionBarActivity {
                         v.setPressed(false);
                         isRecording = false;
                         stopRecording();
-                        tv.setText("Push to talk");
+                        mTextView.setText("Push to talk");
                         break;
                 }
                 return true;
