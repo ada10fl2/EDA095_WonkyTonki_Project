@@ -34,6 +34,7 @@ public class MainActivity extends ActionBarActivity {
     private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
     private static final int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
     private static final int BytesPerElement = 2; // 2 bytes in 16bit format
+    public static final String LOG_TAG = "WT";
 
     private AudioRecord recorder = null;
     private Thread recordingThread = null;
@@ -89,10 +90,11 @@ public class MainActivity extends ActionBarActivity {
             @Override
             protected Object doInBackground(Object[] objects) {
                 final Client client = new Client(1024*1024, 1024*1024);
+
                 Kryo k = client.getKryo();
                 k.setRegistrationRequired(false);
-                client.start();
 
+                client.start();
                 client.addListener(new Listener() {
                     @Override
                     public void connected(Connection connection) {
@@ -141,10 +143,14 @@ public class MainActivity extends ActionBarActivity {
 
                 try {
                     client.connect(5000, "78.73.132.182", 54555, 54777);
-                    //client.connect(5000, "192.168.1.5", 54555, 54777);
                 }catch (IOException e){
+                    try {
+                        client.connect(5000, "192.168.1.5", 54555, 54777);
+                    } catch (IOException e1) {
+                        Log.d(LOG_TAG, "Exception:mainserver", e);
+                        Log.d(LOG_TAG, "Exception:localserver", e1);
+                    }
 
-                    Log.d("WT", "exception");
                 }
 
                 byte[] s;
