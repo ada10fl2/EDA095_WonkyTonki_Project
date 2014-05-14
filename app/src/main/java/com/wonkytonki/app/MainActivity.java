@@ -98,9 +98,9 @@ public class MainActivity extends ActionBarActivity {
         final Handler handler = new Handler();
 
         mAudioFrame = new AudioFrame();
-        AsyncTask task = new AsyncTask() {
+        runOnAsyncThread(new Runnable() {
             @Override
-            protected Object doInBackground(Object[] objects) {
+            public void run() {
                 mClient.start();
                 mClient.addListener(new Listener() {
                     @Override
@@ -163,11 +163,8 @@ public class MainActivity extends ActionBarActivity {
                         mClient.sendTCP(frame);
                     }
                 } catch (InterruptedException e) {}
-                return null;
             }
-
-        };
-        task.execute();
+        });
 
         mButtonTalk.setOnTouchListener(new View.OnTouchListener() {
             @Override
@@ -207,13 +204,12 @@ public class MainActivity extends ActionBarActivity {
         mButtonForceReconnect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                new AsyncTask(){
+                runOnAsyncThread(new Runnable() {
                     @Override
-                    protected Object doInBackground(Object[] params) {
+                    public void run() {
                         connectClient();
-                        return null;
                     }
-                }.execute();
+                });
             }
         });
     }
@@ -227,9 +223,9 @@ public class MainActivity extends ActionBarActivity {
                 mButtonForceReconnect.setEnabled(false);
             }
         });
-        new AsyncTask(){
+        runOnAsyncThread(new Runnable() {
             @Override
-            protected Object doInBackground(Object[] params) {
+            public void run() {
                 try {
                     mClient.connect(5000, SERVER_ADDRESS, 54555, 54777);
                 } catch (IOException e) {
@@ -243,9 +239,8 @@ public class MainActivity extends ActionBarActivity {
                     });
                     Log.d(LOG_TAG, "Exception:mainserver", e);
                 }
-                return null;
             }
-        }.execute();
+        });
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -321,5 +316,15 @@ public class MainActivity extends ActionBarActivity {
             recorder = null;
             recordingThread = null;
         }
+    }
+
+    public void runOnAsyncThread(final Runnable e){
+        new AsyncTask<Void, Void, Void>(){
+            @Override
+            protected Void doInBackground(Void... params) {
+                e.run();
+                return null;
+            }
+        };
     }
 }
