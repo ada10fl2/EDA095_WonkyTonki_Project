@@ -44,7 +44,7 @@ public class MainActivity extends ActionBarActivity {
 
 
     /**
-     * Used to store the last screen title. For use in {@link #restoreActionBar()}.
+     * Used to store the last screen title. For use in {@link #setupActionBar()}.
      */
     private CharSequence mTitle;
      static private BlockingQueue<byte[]> que = new ArrayBlockingQueue<byte[]>(1000);
@@ -53,11 +53,14 @@ public class MainActivity extends ActionBarActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
         button = (Button) findViewById(R.id.talk);
         tv = (TextView) findViewById(R.id.data);
+
+        setupActionBar();
     }
 
-    public void restoreActionBar() {
+    public void setupActionBar() {
         ActionBar actionBar = getSupportActionBar();
         actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
         actionBar.setDisplayShowTitleEnabled(true);
@@ -71,17 +74,16 @@ public class MainActivity extends ActionBarActivity {
     }
 
     private void setup(){
-        int bufferSize = AudioRecord.getMinBufferSize(RECORDER_SAMPLERATE,
-                RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
-
+        int bufferSize = AudioRecord.getMinBufferSize(RECORDER_SAMPLERATE, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
 
         button.setEnabled(false);
 
         final AudioTrack audioPlayer = new AudioTrack(AudioManager.STREAM_MUSIC, 8000, AudioFormat.CHANNEL_CONFIGURATION_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, BufferElements2Rec, AudioTrack.MODE_STREAM);
 
-        if(audioPlayer.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
+        if(audioPlayer.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
             audioPlayer.play();
+        }
 
         AsyncTask task = new AsyncTask() {
             @Override
@@ -90,7 +92,6 @@ public class MainActivity extends ActionBarActivity {
                 Kryo k = client.getKryo();
                 k.setRegistrationRequired(false);
                 client.start();
-
 
                 client.addListener(new Listener() {
                     @Override
