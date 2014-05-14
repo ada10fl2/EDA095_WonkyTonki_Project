@@ -12,7 +12,10 @@
         android:layout_height="wrap_content"
         android:id="@+id/data"/>
 
-    <Button
+    <ImageButton
+        android:src="@drawable/ic_launcher"
+        android:background="#0000"
+        android:scaleType="fitCenter"
         android:layout_width="300dp"
         android:layout_height="300dp"
         android:text="Connecting..."
