@@ -12,7 +12,7 @@ import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import com.esotericsoftware.kryo.Kryo;
@@ -40,7 +40,7 @@ public class MainActivity extends ActionBarActivity {
     private Thread recordingThread = null;
     private boolean isRecording = false;
     private static final String ARG_SECTION_NUMBER = "section_number";
-    private Button button;
+    private ImageButton button;
     private TextView tv;
 
 
@@ -55,8 +55,8 @@ public class MainActivity extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        button = (Button) findViewById(R.id.talk);
-        tv = (TextView) findViewById(R.id.data);
+        button = (ImageButton) findViewById(R.id.btn_talk);
+        tv = (TextView) findViewById(R.id.txt_main_bottom);
 
         setupActionBar();
     }
@@ -102,7 +102,7 @@ public class MainActivity extends ActionBarActivity {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                button.setText("Connected!\nPush to talk!");
+                                tv.setText("Connected!\nPush to talk!");
                                 button.setEnabled(true);
                             }
                         });
@@ -114,7 +114,7 @@ public class MainActivity extends ActionBarActivity {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                button.setText("Disconnected! :(");
+                                tv.setText("Disconnected! :(");
                             }
                         });
                     }
@@ -180,7 +180,7 @@ public class MainActivity extends ActionBarActivity {
                         // Start action ...
                         isRecording = true;
                         startRecording();
-                        button.setText("Push to stop talking");
+                        tv.setText("Push to stop talking");
                         break;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_POINTER_UP:
@@ -188,7 +188,7 @@ public class MainActivity extends ActionBarActivity {
                         button.setPressed(false);
                         isRecording = false;
                         stopRecording();
-                        button.setText("Push to talk");
+                        tv.setText("Push to talk");
                         break;
                     case MotionEvent.ACTION_POINTER_DOWN:
                         break;
@@ -198,10 +198,9 @@ public class MainActivity extends ActionBarActivity {
                         v.setPressed(false);
                         isRecording = false;
                         stopRecording();
-                        button.setText("Push to talk");
+                        tv.setText("Push to talk");
                         break;
                 }
-
                 return true;
             }
         });
