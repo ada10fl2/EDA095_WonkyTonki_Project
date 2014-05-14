@@ -150,7 +150,8 @@ public class MainActivity extends Activity
         private Thread recordingThread = null;
         private boolean isRecording = false;
         private static final String ARG_SECTION_NUMBER = "section_number";
-
+        private Button button;
+        private TextView tv;
         /**
          * Returns a new instance of this fragment for the given section
          * number.
@@ -167,17 +168,31 @@ public class MainActivity extends Activity
         }
 
         @Override
+        public void onResume(){
+            super.onResume();
+            setup();
+        }
+        @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                 Bundle savedInstanceState) {
             View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-
+            button = (Button) rootView.findViewById(R.id.talk);
+            tv = (TextView)rootView.findViewById(R.id.data);
+            return rootView;
+        }
+        private void setup(){
             int bufferSize = AudioRecord.getMinBufferSize(RECORDER_SAMPLERATE,
                     RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
 
-            final Button button = (Button) rootView.findViewById(R.id.talk);
-            button.setEnabled(false);
-            final TextView tv = (TextView)rootView.findViewById(R.id.data);
 
+            button.setEnabled(false);
+
+            final AudioTrack audioPlayer = new AudioTrack(AudioManager.STREAM_MUSIC, 8000, AudioFormat.CHANNEL_CONFIGURATION_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT, BufferElements2Rec, AudioTrack.MODE_STREAM);
+
+            if(audioPlayer.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
+                audioPlayer.play();
+            
             AsyncTask task = new AsyncTask() {
                 @Override
                 protected Object doInBackground(Object[] objects) {
@@ -185,18 +200,7 @@ public class MainActivity extends Activity
                     Kryo k = client.getKryo();
                     k.setRegistrationRequired(false);
                     client.start();
-                    try {
-                        client.connect(5000, "78.73.132.182", 54555, 54777);
-                        //client.connect(5000, "192.168.1.5", 54555, 54777);
-                    }catch (IOException e){
 
-                        Log.d("WT", "exception");
-                    }
-                    final AudioTrack audioPlayer = new AudioTrack(AudioManager.STREAM_MUSIC, 8000, AudioFormat.CHANNEL_CONFIGURATION_MONO,
-                            AudioFormat.ENCODING_PCM_16BIT, BufferElements2Rec, AudioTrack.MODE_STREAM);
-
-                    if(audioPlayer.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
-                        audioPlayer.play();
 
                     client.addListener(new Listener() {
                         @Override
@@ -225,38 +229,46 @@ public class MainActivity extends Activity
                         public void received (Connection connection, Object object) {
                             if (object instanceof byte[]) {
                                 final byte[] response = (byte[])object;
-                                    if(getActivity() != null) {
-                                        getActivity().runOnUiThread(new Runnable() {
-                                            @Override
-                                            public void run() {
+                                if(getActivity() != null) {
+                                    getActivity().runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
 
-                                                short[] sData = new short[response.length / 2];
+                                            short[] sData = new short[response.length / 2];
 
-                                                ByteBuffer.wrap(response).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
-                                                int writtenBytes = 0;
-                                                if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
-                                                    writtenBytes = audioPlayer.write(sData, 0, sData.length);
-                                                } else {
-                                                    Log.v("ERR", "Error");
-                                                }
+                                            ByteBuffer.wrap(response).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
+                                            int writtenBytes = 0;
+                                            if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
+                                                writtenBytes = audioPlayer.write(sData, 0, sData.length);
+                                            } else {
+                                                Log.v("ERR", "Error");
                                             }
-                                        });
-                                    }
+                                        }
+                                    });
+                                }
 
                             }
                         }
                     });
+                    try {
+                        client.connect(5000, "78.73.132.182", 54555, 54777);
+                        //client.connect(5000, "192.168.1.5", 54555, 54777);
+                    }catch (IOException e){
+
+                        Log.d("WT", "exception");
+                    }
+
                     byte[] s;
                     try {
 
                         while((s = que.take()) != null){
-                         //   int pos = 0;
-                         //   while(pos < s.length()- s.length()/8)
-                          //  {
+                            //   int pos = 0;
+                            //   while(pos < s.length()- s.length()/8)
+                            //  {
 
-                                client.sendTCP(s);
-                               // pos += s.length()/8+1;
-                          //  }
+                            client.sendTCP(s);
+                            // pos += s.length()/8+1;
+                            //  }
 
                         }
                     } catch (InterruptedException e) {
@@ -302,9 +314,7 @@ public class MainActivity extends Activity
                     return true;
                 }
             });
-            return rootView;
         }
-
         @Override
         public void onAttach(Activity activity) {
             super.onAttach(activity);
