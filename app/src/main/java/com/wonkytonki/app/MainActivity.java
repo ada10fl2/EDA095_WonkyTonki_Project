@@ -7,6 +7,7 @@ import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
@@ -15,7 +16,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryonet.Client;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
@@ -40,25 +40,30 @@ public class MainActivity extends ActionBarActivity {
     private Thread recordingThread = null;
     private boolean isRecording = false;
 
-    private Button mButton;
+    private Button mButtonTalk;
     private TextView mTextViewBottom;
 
     private CharSequence mTitle;
     private Button mButtonForceReconnect;
     private TextView mTextViewTop;
+    private Client mClient;
 
     private static BlockingQueue<byte[]> que = new ArrayBlockingQueue<byte[]>(1000);
     private static int value = 0;
+    private AudioFrame mAudioFrame;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mButton = (Button) findViewById(R.id.main_btn_talk);
+        mButtonTalk = (Button) findViewById(R.id.main_btn_talk);
         mTextViewBottom = (TextView) findViewById(R.id.main_txt_bottom);
         mTextViewTop = (TextView) findViewById(R.id.main_txt_top);
         mButtonForceReconnect = (Button) findViewById(R.id.main_btn_reconnect);
+
+        mClient = new Client(1024*1024, 1024*1024);
+        mClient.getKryo().setRegistrationRequired(false);
 
         setupActionBar();
     }
@@ -79,7 +84,7 @@ public class MainActivity extends ActionBarActivity {
     private void setup(){
         int bufferSize = AudioRecord.getMinBufferSize(RECORDER_SAMPLERATE, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
 
-        mButton.setEnabled(false);
+        mButtonTalk.setEnabled(false);
 
         final AudioTrack audioPlayer = new AudioTrack(AudioManager.STREAM_MUSIC, 8000, AudioFormat.CHANNEL_CONFIGURATION_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, BufferElements2Rec, AudioTrack.MODE_STREAM);
@@ -88,16 +93,12 @@ public class MainActivity extends ActionBarActivity {
             audioPlayer.play();
         }
 
+        mAudioFrame = new AudioFrame();
         AsyncTask task = new AsyncTask() {
             @Override
             protected Object doInBackground(Object[] objects) {
-                final Client client = new Client(1024*1024, 1024*1024);
-
-                Kryo k = client.getKryo();
-                k.setRegistrationRequired(false);
-
-                client.start();
-                client.addListener(new Listener() {
+                mClient.start();
+                mClient.addListener(new Listener() {
                     @Override
                     public void connected(Connection connection) {
                         super.connected(connection);
@@ -105,7 +106,8 @@ public class MainActivity extends ActionBarActivity {
                             @Override
                             public void run() {
                                 mTextViewBottom.setText("Connected!\nPush to talk!");
-                                mButton.setEnabled(true);
+                                mButtonTalk.setEnabled(true);
+                                mButtonForceReconnect.setEnabled(false);
                             }
                         });
                     }
@@ -117,56 +119,59 @@ public class MainActivity extends ActionBarActivity {
                             @Override
                             public void run() {
                                 mTextViewBottom.setText("Disconnected! :(");
+                                mButtonForceReconnect.setEnabled(true);
                             }
                         });
+                        new Handler().postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                connectClient();
+                            }
+                        }, 1000);
                     }
 
                     public void received (Connection connection, Object object) {
-                        byte[] data = new byte[0];
-                        if (object instanceof byte[]) {
-                            data = (byte[]) object;
-                        }
-
-                        final byte[] response = data;
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                short[] sData = new short[response.length / 2];
-                                ByteBuffer.wrap(response).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
-                                int writtenBytes = 0;
-                                if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
-                                    writtenBytes = audioPlayer.write(sData, 0, sData.length);
-                                    audioPlayer.flush();
-                                } else {
-                                    Log.e(LOG_TAG, "Error");
+                        if(object instanceof AudioFrame){
+                            mAudioFrame = (AudioFrame) object;
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    short[] sData = new short[mAudioFrame.bytes.length / 2];
+                                    ByteBuffer.wrap(mAudioFrame.bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
+                                    int writtenBytes = 0;
+                                    if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
+                                        writtenBytes = audioPlayer.write(sData, 0, sData.length);
+                                        audioPlayer.flush();
+                                    } else {
+                                        Log.e(LOG_TAG, "Error: AudioRecord.ERROR_INVALID_OPERATION != sData.length");
+                                    }
+                                    setTitle(String.format("%d users connected", mAudioFrame.users));
                                 }
-                            }
-                        });
+                            });
+                        }
                     }
                 });
 
-                connectClient(client);
+                connectClient();
 
                 byte[] bytes;
                 try {
                     while((bytes = que.take()) != null){
-                        client.sendTCP(bytes);
+                        mClient.sendTCP(bytes);
                     }
-                } catch (InterruptedException e) {
-
-                }
+                } catch (InterruptedException e) {}
                 return null;
             }
 
         };
         task.execute();
 
-        mButton.setOnTouchListener(new View.OnTouchListener() {
+        mButtonTalk.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
                     case MotionEvent.ACTION_DOWN:
-                        mButton.setPressed(true);
+                        mButtonTalk.setPressed(true);
                         // Start action ...
                         isRecording = true;
 
@@ -176,7 +181,7 @@ public class MainActivity extends ActionBarActivity {
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_POINTER_UP:
                     case MotionEvent.ACTION_OUTSIDE:
-                        mButton.setPressed(false);
+                        mButtonTalk.setPressed(false);
                         isRecording = false;
                         stopRecording();
                         mTextViewBottom.setText("Push to talk");
@@ -195,14 +200,22 @@ public class MainActivity extends ActionBarActivity {
                 return true;
             }
         });
+
+        mButtonForceReconnect.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                connectClient();
+            }
+        });
     }
-    private boolean connectClient(Client client){
+
+    private boolean connectClient(){
         try {
-            client.connect(5000, "78.73.132.182", 54555, 54777);
+            mClient.connect(5000, "78.73.132.182", 54555, 54777);
             return true;
         }catch (IOException e){
             try {
-                client.connect(5000, "192.168.1.5", 54555, 54777);
+                mClient.connect(5000, "192.168.1.5", 54555, 54777);
                 return true;
             } catch (IOException e1) {
                 Log.d(LOG_TAG, "Exception:mainserver", e);
@@ -210,8 +223,8 @@ public class MainActivity extends ActionBarActivity {
                 return false;
             }
         }
-
     }
+
     private void startRecording() {
         recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                 RECORDER_SAMPLERATE, RECORDER_CHANNELS,
