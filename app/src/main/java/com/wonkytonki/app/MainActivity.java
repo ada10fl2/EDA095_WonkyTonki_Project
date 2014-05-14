@@ -128,7 +128,13 @@ public class MainActivity extends ActionBarActivity {
                         handler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
-                                connectClient();
+                                new AsyncTask(){
+                                    @Override
+                                    protected Object doInBackground(Object[] params) {
+                                        connectClient();
+                                        return null;
+                                    }
+                                }.execute();
                             }
                         }, 1000);
                     }
@@ -207,12 +213,18 @@ public class MainActivity extends ActionBarActivity {
         mButtonForceReconnect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                connectClient();
+                new AsyncTask(){
+                    @Override
+                    protected Object doInBackground(Object[] params) {
+                        connectClient();
+                        return null;
+                    }
+                }.execute();
             }
         });
     }
 
-    private boolean connectClient(){
+    private boolean connectClient() {
         try {
             runOnUiThread(new Runnable() {
                 @Override
