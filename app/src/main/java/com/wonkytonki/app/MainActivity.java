@@ -218,6 +218,7 @@ public class MainActivity extends ActionBarActivity {
                 @Override
                 public void run() {
                     mTextViewBottom.setText("Connecting...");
+                    mButtonTalk.setEnabled(false);
                     mButtonForceReconnect.setEnabled(false);
                 }
             });
@@ -225,7 +226,8 @@ public class MainActivity extends ActionBarActivity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    mTextViewBottom.setText("Connected...");
+                    mTextViewBottom.setText("Connected");
+                    mButtonTalk.setEnabled(true);
                 }
             });
             return true;
@@ -234,6 +236,7 @@ public class MainActivity extends ActionBarActivity {
                 @Override
                 public void run() {
                     mTextViewBottom.setText("Connection failed");
+                    mButtonTalk.setEnabled(false);
                     mButtonForceReconnect.setEnabled(true);
                 }
             });
@@ -248,15 +251,10 @@ public class MainActivity extends ActionBarActivity {
                 RECORDER_AUDIO_ENCODING, BufferElements2Rec * BytesPerElement);
         recorder.stop();
         recorder.startRecording();
-
         isRecording = true;
-
         recordingThread = new Thread(new Runnable() {
-
             public void run() {
-
                 writeAudioDataToFile();
-
             }
         }, "AudioRecorder Thread");
         recordingThread.start();
@@ -292,7 +290,8 @@ public class MainActivity extends ActionBarActivity {
             }
         }
     }
-    private boolean checkData(short[] arr){
+
+    private boolean checkData(short[] arr) {
         //return true;
         int i = 0;
         for(short s : arr){
@@ -300,15 +299,13 @@ public class MainActivity extends ActionBarActivity {
         }
         return i > 10;
     }
+
     private void stopRecording() {
         // stops the recording activity
         if (null != recorder) {
             isRecording = false;
-
-
             recorder.stop();
             recorder.release();
-
             recorder = null;
             recordingThread = null;
         }
