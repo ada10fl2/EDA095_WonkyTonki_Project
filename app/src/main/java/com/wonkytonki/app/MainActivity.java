@@ -35,7 +35,8 @@ public class MainActivity extends ActionBarActivity {
     private static final int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
     private static final int BytesPerElement = 2; // 2 bytes in 16bit format
     public static final String LOG_TAG = "WT";
-    public static final String SERVER_ADDRESS = "192.168.1.45";
+    //public static final String SERVER_ADDRESS = "192.168.1.45";
+    public static final String SERVER_ADDRESS = "78.73.132.182";
 
     private AudioRecord recorder = null;
     private Thread recordingThread = null;
@@ -241,13 +242,6 @@ public class MainActivity extends ActionBarActivity {
                 }
             }
         });
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mTextViewBottom.setText("Connected");
-                mButtonTalk.setEnabled(true);
-            }
-        });
         return true;
 
     }
@@ -325,6 +319,6 @@ public class MainActivity extends ActionBarActivity {
                 e.run();
                 return null;
             }
-        };
+        }.execute();
     }
 }
