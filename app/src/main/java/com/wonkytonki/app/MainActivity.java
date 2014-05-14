@@ -125,15 +125,13 @@ public class MainActivity extends ActionBarActivity {
                             runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
-
                                         short[] sData = new short[response.length / 2];
-
                                         ByteBuffer.wrap(response).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
                                         int writtenBytes = 0;
                                         if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
                                             writtenBytes = audioPlayer.write(sData, 0, sData.length);
                                         } else {
-                                            Log.v("ERR", "Error");
+                                            Log.e(LOG_TAG, "Error");
                                         }
                                     }
                             });
@@ -153,16 +151,14 @@ public class MainActivity extends ActionBarActivity {
 
                 }
 
-                byte[] s;
+                byte[] bytes;
                 try {
-
-                    while((s = que.take()) != null){
+                    while((bytes = que.take()) != null){
                         //   int pos = 0;
-                        //   while(pos < s.length()- s.length()/8)
+                        //   while(pos < bytes.length()- bytes.length()/8)
                         //  {
-
-                        client.sendTCP(s);
-                        // pos += s.length()/8+1;
+                        client.sendTCP(new AudioFrame(System.currentTimeMillis(), bytes));
+                        // pos += bytes.length()/8+1;
                         //  }
 
                     }

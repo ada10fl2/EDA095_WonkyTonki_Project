@@ -6,4 +6,9 @@ package com.wonkytonki.app;
 public class AudioFrame {
     public long time;
     public byte[] bytes;
+
+    public AudioFrame(long time, byte[] bytes) {
+        this.time = time;
+        this.bytes = bytes;
+    }
 }
