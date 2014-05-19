@@ -14,8 +14,6 @@ public class Main {
     public static final int UDP_PORT = 54777;
 
     public static void main(String[] args) throws IOException {
-        System.out.println("Initializing...");
-
         Log.set(Log.LEVEL_DEBUG);
         Log.setLogger(new MyLogger());
 
@@ -27,7 +25,6 @@ public class Main {
         k.register(AudioFrame.class);
         k.register(byte[].class);
 
-        System.out.println("Running...");
         final List<Connection> pool = Collections.synchronizedList(new ArrayList<Connection>());
 
         server.addListener(new Listener() {
