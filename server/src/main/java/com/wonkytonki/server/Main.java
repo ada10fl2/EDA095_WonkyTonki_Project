@@ -2,46 +2,50 @@ package com.wonkytonki.server;
 
 import com.esotericsoftware.kryonet.*;
 import com.esotericsoftware.kryo.*;
-import com.wonkytonki.server.messages.AudioFrame;
+import com.esotericsoftware.minlog.Log;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.util.*;
 
 public class Main {
+
+    public static final int TCP_PORT = 54555;
+    public static final int UDP_PORT = 54777;
+
     public static void main(String[] args) throws IOException {
         System.out.println("Initializing...");
 
-        Server server = new Server(1024 * 1024, 1024 * 1024);
+        Log.set(Log.LEVEL_DEBUG);
+        Log.setLogger(new MyLogger());
+
+        final Server server = new Server(1024 * 1024, 1024 * 1024);
         server.start();
-        server.bind(54555, 54777);
+        server.bind(TCP_PORT, UDP_PORT);
 
         Kryo k = server.getKryo();
-        k.setRegistrationRequired(false);
         k.register(AudioFrame.class);
-        
+        k.register(byte[].class);
+
         System.out.println("Running...");
         final List<Connection> pool = Collections.synchronizedList(new ArrayList<Connection>());
 
         server.addListener(new Listener() {
             @Override
-            public void connected(Connection connection) {
-                System.out.println("Connected: "+connection.getRemoteAddressTCP().getHostString());
-                pool.add(connection);
+            public void connected(Connection c) {
+                super.connected(c);
+                pool.add(c);
                 System.out.println("Clients: "+pool.size()+"");
             }
             
             @Override
-            public void received (Connection connection, Object object) {
-                System.out.print(".");
+            public void received (Connection c, Object object) {
+                super.received(c, object);
                 if(object instanceof AudioFrame) {
                     AudioFrame af = (AudioFrame) object;
+                    af.users = pool.size();
                     if (true || af.time > System.currentTimeMillis() - 1000) {
-                        af.users = pool.size();
-                        for (Connection peer : pool) {
-                            if (peer.getRemoteAddressTCP().equals(connection.getRemoteAddressTCP())) continue;
-                            System.out.println("Sending reply to "+peer.getRemoteAddressTCP());
-                            peer.sendTCP(af);
-                        }
+                        server.sendToAllExceptTCP(c.getID(), af);
                     } else {
                         System.out.println("Discarding old audio frame: "+af.time);
                     }
@@ -49,11 +53,33 @@ public class Main {
             }
 
             @Override
-            public void disconnected(Connection connection) {
-                System.out.println("Disconnected: "+connection.toString());
-                pool.remove(connection);
+            public void disconnected(Connection c) {
+                super.disconnected(c);
+                pool.remove(c);
                 System.out.println("Clients: "+pool.size()+"");
             }
         });
+
+        System.out.printf("Server running on %s:%s%n", InetAddress.getLocalHost().getCanonicalHostName(), TCP_PORT);
+    }
+
+    public static class MyLogger extends Log.Logger {
+        public void log (int level, String category, String message, Throwable ex) {
+            StringBuilder builder = new StringBuilder(256);
+            //builder.append(new Date());
+            //builder.append(' ');
+            //builder.append(level);
+            builder.append('[');
+            builder.append(category);
+            builder.append("] ");
+            builder.append(message);
+            if (ex != null) {
+                StringWriter writer = new StringWriter(256);
+                ex.printStackTrace(new PrintWriter(writer));
+                builder.append('\n');
+                builder.append(writer.toString().trim());
+            }
+            System.out.println(builder);
+        }
     }
 }
