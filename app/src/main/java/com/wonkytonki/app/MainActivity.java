@@ -131,6 +131,7 @@ public class MainActivity extends ActionBarActivity {
                     }
 
                     public void received (Connection connection, Object object) {
+                        super.received(connection, object);
                         if(object instanceof AudioFrame){
                             mAudioFrame = (AudioFrame) object;
                             runOnUiThread(new Runnable() {
@@ -233,7 +234,7 @@ public class MainActivity extends ActionBarActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            mTextViewBottom.setText("Connection failed");
+                            mTextViewBottom.setText("Connection failed\n\u25BC Try again! \u25BC");
                             mButtonTalk.setEnabled(false);
                             mButtonForceReconnect.setEnabled(true);
                         }
@@ -279,7 +280,7 @@ public class MainActivity extends ActionBarActivity {
             /* System.out.println("Short wirting to file" + sData.toString()); */
             int writtenBytes = 0;
             if(AudioRecord.ERROR_INVALID_OPERATION != readBytes){
-                if(checkData(sData)) {
+                if(isSilentAudioData(sData)) {
                     byte bData[] = short2byte(sData);
                     try {
                         que.put(bData);
@@ -292,7 +293,7 @@ public class MainActivity extends ActionBarActivity {
         }
     }
 
-    private boolean checkData(short[] arr) {
+    private boolean isSilentAudioData(short[] arr) {
         //return true;
         int i = 0;
         for(short s : arr){
@@ -304,8 +305,8 @@ public class MainActivity extends ActionBarActivity {
     private void stopRecording() {
         // stops the recording activity
         if (null != recorder) {
-            isRecording = false;
             recorder.stop();
+            isRecording = false;
             recorder.release();
             recorder = null;
             recordingThread = null;
@@ -313,12 +314,13 @@ public class MainActivity extends ActionBarActivity {
     }
 
     public void runOnAsyncThread(final Runnable e){
-        new AsyncTask<Void, Void, Void>(){
+        final AsyncTask<Void, Void, Void> task = new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
                 e.run();
                 return null;
             }
-        }.execute();
+        };
+        task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 }
