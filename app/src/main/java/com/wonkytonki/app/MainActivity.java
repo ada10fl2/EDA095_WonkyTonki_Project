@@ -1,5 +1,9 @@
 package com.wonkytonki.app;
 
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
@@ -8,9 +12,13 @@ import android.media.MediaRecorder;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.v4.app.NotificationCompat;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -31,25 +39,21 @@ import java.util.concurrent.BlockingQueue;
 
 
 public class MainActivity extends ActionBarActivity {
+    public static final int NOTIFICATION_ID = 001;
     private static final BlockingQueue<byte[]> audioBytes = new ArrayBlockingQueue<byte[]>(1000);
-
     private static final int RECORDER_SAMPLERATE = 8000;
     private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
     private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
     private static final int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
     private static final int BytesPerElement = 2; // 2 bytes in 16bit format
-
     private static final String LOG_TAG = "WONKY";
     private static final int TCP_PORT = 54555;
     private static final int UDP_PORT = 54777;
     private static final int AUDIO_THRESHOLD = 14000;
-
     private static final float BUTTON_ALPHA_OFF = 0.4f;
     private static final float BUTTON_ALPHA_ON = 1.0f;
-
     //private static final String SERVER_ADDRESS = "192.168.0.134";
     private static final String SERVER_ADDRESS = "78.73.132.182";
-
     private AudioRecord recorder = null;
     private Thread recordingThread = null;
     private boolean isRecording = false;
@@ -63,6 +67,7 @@ public class MainActivity extends ActionBarActivity {
 
     private AudioFrame mAudioFrame;
     private Timer mTimer;
+    private boolean mIsConnected = false;
 
     private static void disableButton(Button b) {
         b.setEnabled(false);
@@ -79,7 +84,7 @@ public class MainActivity extends ActionBarActivity {
         mTextViewTop = (TextView) findViewById(R.id.main_txt_top);
         mButtonForceReconnect = (Button) findViewById(R.id.main_btn_reconnect);
 
-        mClient = new Client(1024*1024, 1024*1024);
+        mClient = new Client(1024 * 1024, 1024 * 1024);
 
         com.esotericsoftware.minlog.Log.setLogger(new AndroidLogger());
         com.esotericsoftware.minlog.Log.set(com.esotericsoftware.minlog.Log.LEVEL_DEBUG);
@@ -91,6 +96,7 @@ public class MainActivity extends ActionBarActivity {
 
         setupActionBar();
         setTitle("Wonky Tonki");
+        setup();
     }
 
     public void setupActionBar() {
@@ -100,19 +106,49 @@ public class MainActivity extends ActionBarActivity {
     }
 
     @Override
-    public void onResume(){
-        super.onResume();
-        setup();
+    protected void onDestroy() {
+        stopRecording();
+        mClient.stop();
+        super.onDestroy();
     }
 
-    private void setup(){
+    private void hideNotification() {
+        NotificationManager manager = NotificationManager.class.cast(getSystemService(NOTIFICATION_SERVICE));
+        manager.cancel(NOTIFICATION_ID);
+    }
+
+    private void showNotification() {
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setAction(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_LAUNCHER);
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,intent, 0);
+
+        NotificationCompat.Builder builder =
+                new NotificationCompat.Builder(this)
+                        .setSmallIcon(R.drawable.ic_running)
+                        .setContentTitle("WonkyTonky is running")
+                        .setContentText("Connected and still receiving voice")
+                        .setContentIntent(pendingIntent)
+                        .setOngoing(true);
+        // Sets an ID for the notification
+        // Gets an instance of the NotificationManager service
+        NotificationManager manager = NotificationManager.class.cast(getSystemService(NOTIFICATION_SERVICE));
+        // Builds the notification and issues it.
+        final Notification notification = builder.build();
+        manager.notify(NOTIFICATION_ID, notification);
+    }
+
+    private void setup() {
         int bufferSize = AudioRecord.getMinBufferSize(RECORDER_SAMPLERATE, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
         final AudioTrack audioPlayer = new AudioTrack(AudioManager.STREAM_MUSIC, 8000, AudioFormat.CHANNEL_CONFIGURATION_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, BufferElements2Rec, AudioTrack.MODE_STREAM);
 
-        if(audioPlayer.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
+        if (audioPlayer.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
             audioPlayer.play();
         }
+
+        final Handler h = new Handler();
 
         mAudioFrame = new AudioFrame();
         runOnAsyncThread(new Runnable() {
@@ -133,9 +169,9 @@ public class MainActivity extends ActionBarActivity {
                         connectClient();
                     }
 
-                    public void received (Connection connection, Object object) {
+                    public void received(Connection connection, Object object) {
                         super.received(connection, object);
-                        if(object instanceof AudioFrame) {
+                        if (object instanceof AudioFrame) {
                             mAudioFrame = (AudioFrame) object;
                             final short[] sData = new short[mAudioFrame.bytes.length / 2];
                             ByteBuffer.wrap(mAudioFrame.bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
@@ -159,14 +195,15 @@ public class MainActivity extends ActionBarActivity {
 
                 byte[] bytes;
                 try {
-                    while((bytes = MainActivity.audioBytes.take()) != null){
+                    while ((bytes = MainActivity.audioBytes.take()) != null) {
                         AudioFrame frame = new AudioFrame();
                         frame.bytes = bytes;
                         frame.time = System.currentTimeMillis();
                         frame.users = -1;
                         mClient.sendTCP(frame);
                     }
-                } catch (InterruptedException e) {}
+                } catch (InterruptedException e) {
+                }
             }
         });
 
@@ -205,12 +242,14 @@ public class MainActivity extends ActionBarActivity {
     }
 
     private void onConnectedToServer() {
+        mIsConnected = true;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 mTextViewBottom.setText("Connected!\nPush to talk!");
                 enableButton(mButtonTalk);
                 disableButton(mButtonForceReconnect);
+                showNotification();
             }
         });
     }
@@ -221,12 +260,11 @@ public class MainActivity extends ActionBarActivity {
     }
 
     private void onDisconnectedFromServer() {
+        mIsConnected = false;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mTextViewBottom.setText("Disconnected! :(");
-                disableButton(mButtonTalk);
-                enableButton(mButtonForceReconnect);
+                hideNotification();
             }
         });
     }
@@ -266,8 +304,29 @@ public class MainActivity extends ActionBarActivity {
                 mTextViewBottom.setText("Connecting...");
                 disableButton(mButtonTalk);
                 disableButton(mButtonForceReconnect);
+                hideNotification();
             }
         });
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu items for use in the action bar
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_activity_actions, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle presses on the action bar items
+        switch (item.getItemId()) {
+            case R.id.action_exit:
+                finish();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
     }
 
     private void startRecording() {
@@ -297,9 +356,9 @@ public class MainActivity extends ActionBarActivity {
         while (isRecording) {
             // gets the voice output from microphone to byte format
             int readBytes = recorder.read(sData, 0, BufferElements2Rec);
-            if(AudioRecord.ERROR_INVALID_OPERATION != readBytes){
+            if (AudioRecord.ERROR_INVALID_OPERATION != readBytes) {
                 byte bData[] = short2byte(sData);
-                if(isSilentAudioData(bData)) {
+                if (isSilentAudioData(bData)) {
                     try {
                         audioBytes.put(bData);
                     } catch (InterruptedException e) {
@@ -312,7 +371,7 @@ public class MainActivity extends ActionBarActivity {
 
     private boolean isSilentAudioData(byte[] arr) {
         long sum = 0L;
-        for(byte b : arr) {
+        for (byte b : arr) {
             sum += Math.abs(b);
         }
         return sum > AUDIO_THRESHOLD;
@@ -329,7 +388,7 @@ public class MainActivity extends ActionBarActivity {
         }
     }
 
-    public void runOnAsyncThread(final Runnable e){
+    public void runOnAsyncThread(final Runnable e) {
         final AsyncTask<Void, Void, Void> task = new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
@@ -343,7 +402,7 @@ public class MainActivity extends ActionBarActivity {
     private static class AndroidLogger extends com.esotericsoftware.minlog.Log.Logger {
         @Override
         public void log(int lvl, String tag, String msg, Throwable ex) {
-            if(ex == null){
+            if (ex == null) {
                 Log.d(String.valueOf(tag).toUpperCase(), msg);
             } else {
                 Log.e(String.valueOf(tag).toUpperCase(), msg, ex);
