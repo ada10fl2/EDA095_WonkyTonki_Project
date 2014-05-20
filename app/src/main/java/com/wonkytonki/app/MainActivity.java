@@ -39,11 +39,16 @@ public class MainActivity extends ActionBarActivity {
     private static final int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
     private static final int BytesPerElement = 2; // 2 bytes in 16bit format
 
-    private static final String LOG_TAG = "WT";
-    private static final String SERVER_ADDRESS = "192.168.0.134";
-    public static final int TCP_PORT = 54555;
-    public static final int UDP_PORT = 54777;
-    //public static final String SERVER_ADDRESS = "78.73.132.182";
+    private static final String LOG_TAG = "WONKY";
+    private static final int TCP_PORT = 54555;
+    private static final int UDP_PORT = 54777;
+    private static final int AUDIO_THRESHOLD = 14000;
+
+    private static final float BUTTON_ALPHA_OFF = 0.4f;
+    private static final float BUTTON_ALPHA_ON = 1.0f;
+
+    //private static final String SERVER_ADDRESS = "192.168.0.134";
+    private static final String SERVER_ADDRESS = "78.73.132.182";
 
     private AudioRecord recorder = null;
     private Thread recordingThread = null;
@@ -70,6 +75,10 @@ public class MainActivity extends ActionBarActivity {
         mButtonForceReconnect = (Button) findViewById(R.id.main_btn_reconnect);
 
         mClient = new Client(1024*1024, 1024*1024);
+
+        com.esotericsoftware.minlog.Log.setLogger(new AndroidLogger());
+        com.esotericsoftware.minlog.Log.set(com.esotericsoftware.minlog.Log.LEVEL_DEBUG);
+
         Kryo k = mClient.getKryo();
         k.setRegistrationRequired(false);
 
@@ -100,8 +109,6 @@ public class MainActivity extends ActionBarActivity {
             audioPlayer.play();
         }
 
-        final Handler handler = new Handler();
-
         mAudioFrame = new AudioFrame();
         runOnAsyncThread(new Runnable() {
             @Override
@@ -125,14 +132,13 @@ public class MainActivity extends ActionBarActivity {
                         super.received(connection, object);
                         if(object instanceof AudioFrame) {
                             mAudioFrame = (AudioFrame) object;
+                            final short[] sData = new short[mAudioFrame.bytes.length / 2];
+                            ByteBuffer.wrap(mAudioFrame.bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    short[] sData = new short[mAudioFrame.bytes.length / 2];
-                                    ByteBuffer.wrap(mAudioFrame.bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
-                                    int writtenBytes = 0;
                                     if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
-                                        writtenBytes = audioPlayer.write(sData, 0, sData.length);
+                                        audioPlayer.write(sData, 0, sData.length);
                                         audioPlayer.flush();
                                     } else {
                                         Log.e(LOG_TAG, "Error: AudioRecord.ERROR_INVALID_OPERATION != sData.length");
@@ -198,10 +204,20 @@ public class MainActivity extends ActionBarActivity {
             @Override
             public void run() {
                 mTextViewBottom.setText("Connected!\nPush to talk!");
-                mButtonTalk.setEnabled(true);
-                mButtonForceReconnect.setEnabled(false);
+                enableButton(mButtonTalk);
+                disableButton(mButtonForceReconnect);
             }
         });
+    }
+
+    private void enableButton(Button b) {
+        b.setEnabled(true);
+        b.setAlpha(BUTTON_ALPHA_ON);
+    }
+
+    private static void disableButton(Button b) {
+        b.setEnabled(false);
+        b.setAlpha(BUTTON_ALPHA_OFF);
     }
 
     private void onDisconnectedFromServer() {
@@ -209,7 +225,8 @@ public class MainActivity extends ActionBarActivity {
             @Override
             public void run() {
                 mTextViewBottom.setText("Disconnected! :(");
-                mButtonForceReconnect.setEnabled(true);
+                disableButton(mButtonTalk);
+                enableButton(mButtonForceReconnect);
             }
         });
     }
@@ -236,8 +253,8 @@ public class MainActivity extends ActionBarActivity {
             @Override
             public void run() {
                 mTextViewBottom.setText("Connection failed\n\u25BC Try again! \u25BC");
-                mButtonTalk.setEnabled(false);
-                mButtonForceReconnect.setEnabled(true);
+                disableButton(mButtonTalk);
+                enableButton(mButtonForceReconnect);
             }
         });
     }
@@ -247,8 +264,8 @@ public class MainActivity extends ActionBarActivity {
             @Override
             public void run() {
                 mTextViewBottom.setText("Connecting...");
-                mButtonTalk.setEnabled(false);
-                mButtonForceReconnect.setEnabled(false);
+                disableButton(mButtonTalk);
+                disableButton(mButtonForceReconnect);
             }
         });
     }
@@ -277,35 +294,28 @@ public class MainActivity extends ActionBarActivity {
     private void writeAudioDataToFile() {
         // Write the output audio in byte
         short sData[] = new short[BufferElements2Rec];
-
-        // if(audioPlayer.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
-        //      audioPlayer.play();
         while (isRecording) {
             // gets the voice output from microphone to byte format
             int readBytes = recorder.read(sData, 0, BufferElements2Rec);
-            /* System.out.println("Short wirting to file" + sData.toString()); */
-            int writtenBytes = 0;
             if(AudioRecord.ERROR_INVALID_OPERATION != readBytes){
-                if(isSilentAudioData(sData)) {
-                    byte bData[] = short2byte(sData);
+                byte bData[] = short2byte(sData);
+                if(isSilentAudioData(bData)) {
                     try {
                         audioBytes.put(bData);
                     } catch (InterruptedException e) {
-                        e.printStackTrace();
+                        Log.d(LOG_TAG, "Interrupted while adding to audio queue", e);
                     }
                 }
-                //writtenBytes += audioPlayer.write(sData, 0, readBytes);
             }
         }
     }
 
-    private boolean isSilentAudioData(short[] arr) {
-        return true;
-//        int i = 0;
-//        for(short s : arr){
-//            i += s;
-//        }
-//        return i > 10;
+    private boolean isSilentAudioData(byte[] arr) {
+        long sum = 0L;
+        for(byte b : arr) {
+            sum += Math.abs(b);
+        }
+        return sum > AUDIO_THRESHOLD;
     }
 
     private void stopRecording() {
@@ -328,5 +338,16 @@ public class MainActivity extends ActionBarActivity {
             }
         };
         task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+
+    private static class AndroidLogger extends com.esotericsoftware.minlog.Log.Logger {
+        @Override
+        public void log(int lvl, String tag, String msg, Throwable ex) {
+            if(ex == null){
+                Log.d(String.valueOf(tag).toUpperCase(), msg);
+            } else {
+                Log.e(String.valueOf(tag).toUpperCase(), msg, ex);
+            }
+        }
     }
 }
