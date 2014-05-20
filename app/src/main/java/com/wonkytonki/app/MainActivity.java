@@ -19,6 +19,7 @@ import android.widget.TextView;
 import com.esotericsoftware.kryonet.Client;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
+import com.wonkytonki.common.AudioFrame;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
