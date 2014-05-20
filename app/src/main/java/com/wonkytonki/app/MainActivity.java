@@ -64,6 +64,11 @@ public class MainActivity extends ActionBarActivity {
     private AudioFrame mAudioFrame;
     private Timer mTimer;
 
+    private static void disableButton(Button b) {
+        b.setEnabled(false);
+        b.setAlpha(BUTTON_ALPHA_OFF);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -173,16 +178,16 @@ public class MainActivity extends ActionBarActivity {
                     case MotionEvent.ACTION_DOWN:
                     case MotionEvent.ACTION_POINTER_DOWN:
                         mButtonTalk.setPressed(true);
+                        mTextViewBottom.setText("Release to stop talking");
                         isRecording = true;
                         startRecording();
-                        mTextViewBottom.setText("Release to stop talking");
                         break;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_POINTER_UP:
                         mButtonTalk.setPressed(false);
+                        mTextViewBottom.setText("Push to talk");
                         isRecording = false;
                         stopRecording();
-                        mTextViewBottom.setText("Push to talk");
                         break;
                     default:
                         break;
@@ -213,11 +218,6 @@ public class MainActivity extends ActionBarActivity {
     private void enableButton(Button b) {
         b.setEnabled(true);
         b.setAlpha(BUTTON_ALPHA_ON);
-    }
-
-    private static void disableButton(Button b) {
-        b.setEnabled(false);
-        b.setAlpha(BUTTON_ALPHA_OFF);
     }
 
     private void onDisconnectedFromServer() {
