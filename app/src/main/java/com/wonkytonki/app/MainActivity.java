@@ -74,6 +74,7 @@ public class MainActivity extends ActionBarActivity {
     private AudioFrame mAudioFrame;
     private boolean mIsConnected = false;
     private Thread mSendingThread;
+    private boolean mDoReconnect = true;
 
     private static void disableButton(Button b) {
         b.setEnabled(false);
@@ -93,7 +94,7 @@ public class MainActivity extends ActionBarActivity {
         mClient = new Client(BUFFERT_SIZE, BUFFERT_SIZE);
 
         com.esotericsoftware.minlog.Log.setLogger(new AndroidLogger());
-        com.esotericsoftware.minlog.Log.set(com.esotericsoftware.minlog.Log.LEVEL_DEBUG);
+        com.esotericsoftware.minlog.Log.set(com.esotericsoftware.minlog.Log.LEVEL_WARN);
 
         Kryo k = mClient.getKryo();
         k.setRegistrationRequired(false);
@@ -111,7 +112,13 @@ public class MainActivity extends ActionBarActivity {
 
     @Override
     protected void onDestroy() {
+        killApp();
+        super.onDestroy();
+    }
+
+    private void killApp() {
         stopRecording();
+        mDoReconnect = false;
         if (mSendingThread != null) {
             mSendingThread.interrupt();
             mSendingThread = null;
@@ -120,7 +127,6 @@ public class MainActivity extends ActionBarActivity {
             mClient.stop();
         }
         hideNotification();
-        super.onDestroy();
     }
 
     private void hideNotification() {
@@ -174,7 +180,9 @@ public class MainActivity extends ActionBarActivity {
                 public void disconnected(Connection connection) {
                     super.disconnected(connection);
                     onDisconnectedFromServer();
-                    connectToServer();
+                    if(mDoReconnect) {
+                        connectToServer();
+                    }
                 }
 
                 public void received(Connection connection, Object object) {
@@ -198,26 +206,30 @@ public class MainActivity extends ActionBarActivity {
                     }
                 }
             });
-            mSendingThread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    connectToServer();
-                    byte[] bytes;
-                    try {
-                        while ((bytes = MainActivity.audioBytes.take()) != null && !Thread.currentThread().isInterrupted()) {
-                            AudioFrame frame = new AudioFrame();
-                            frame.bytes = bytes;
-                            frame.time = System.currentTimeMillis();
-                            frame.users = -1;
-                            mClient.sendTCP(frame);
-                        }
-                    } catch (InterruptedException e) {
-                        Log.d(LOG_TAG, "mSendingThread was interrupted");
-                    }
-                }
-            });
-            mSendingThread.start();
+
             connectToServer();
+
+            if(mSendingThread == null) {
+                mSendingThread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        connectToServer();
+                        byte[] bytes;
+                        try {
+                            while ((bytes = MainActivity.audioBytes.take()) != null && !Thread.currentThread().isInterrupted()) {
+                                AudioFrame frame = new AudioFrame();
+                                frame.bytes = bytes;
+                                frame.time = System.currentTimeMillis();
+                                frame.users = -1;
+                                mClient.sendTCP(frame);
+                            }
+                        } catch (InterruptedException e) {
+                            Log.d(LOG_TAG, "mSendingThread was interrupted");
+                        }
+                    }
+                });
+                mSendingThread.start();
+            }
         }
 
         mButtonTalk.setEnabled(false);
@@ -336,6 +348,7 @@ public class MainActivity extends ActionBarActivity {
         // Handle presses on the action bar items
         switch (item.getItemId()) {
             case R.id.action_exit:
+                killApp();
                 finish();
                 return true;
             default:
