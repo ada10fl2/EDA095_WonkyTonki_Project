@@ -9,5 +9,13 @@
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="action_example">Example action</string>
     <string name="action_exit">Quit</string>
+    <string name="notification_running_title">WonkyTonky is running</string>
+    <string name="notification_running_text">Connected and still receiving voice</string>
+    <string name="title">Wonky Tonki</string><string name="con_failed_try_again">Connection failed
+▼ Try again! ▼</string>
+    <string name="con_connecting">Connecting...</string><string name="con_connected">Connected!
+Push to talk!</string>
+    <string name="btn_text_push">Push to talk</string>
+    <string name="btn_text_release">Release to stop talking</string>
 
 </resources>

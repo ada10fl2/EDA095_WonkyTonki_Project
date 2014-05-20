@@ -39,21 +39,27 @@ import java.util.concurrent.BlockingQueue;
 
 
 public class MainActivity extends ActionBarActivity {
-    public static final int NOTIFICATION_ID = 001;
+    private static final int NOTIFICATION_ID = 001;
+    private static final String LOG_TAG = "WONKY";
+
     private static final BlockingQueue<byte[]> audioBytes = new ArrayBlockingQueue<byte[]>(1000);
+
     private static final int RECORDER_SAMPLERATE = 8000;
     private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
     private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
     private static final int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
     private static final int BytesPerElement = 2; // 2 bytes in 16bit format
-    private static final String LOG_TAG = "WONKY";
     private static final int TCP_PORT = 54555;
     private static final int UDP_PORT = 54777;
     private static final int AUDIO_THRESHOLD = 14000;
+    private static final int BUFFERT_SIZE = 1024 * 1024;
+
     private static final float BUTTON_ALPHA_OFF = 0.4f;
     private static final float BUTTON_ALPHA_ON = 1.0f;
+
     //private static final String SERVER_ADDRESS = "192.168.0.134";
     private static final String SERVER_ADDRESS = "78.73.132.182";
+
     private AudioRecord recorder = null;
     private Thread recordingThread = null;
     private boolean isRecording = false;
@@ -66,8 +72,8 @@ public class MainActivity extends ActionBarActivity {
     private Client mClient;
 
     private AudioFrame mAudioFrame;
-    private Timer mTimer;
     private boolean mIsConnected = false;
+    private Thread mSendingThread;
 
     private static void disableButton(Button b) {
         b.setEnabled(false);
@@ -84,7 +90,7 @@ public class MainActivity extends ActionBarActivity {
         mTextViewTop = (TextView) findViewById(R.id.main_txt_top);
         mButtonForceReconnect = (Button) findViewById(R.id.main_btn_reconnect);
 
-        mClient = new Client(1024 * 1024, 1024 * 1024);
+        mClient = new Client(BUFFERT_SIZE, BUFFERT_SIZE);
 
         com.esotericsoftware.minlog.Log.setLogger(new AndroidLogger());
         com.esotericsoftware.minlog.Log.set(com.esotericsoftware.minlog.Log.LEVEL_DEBUG);
@@ -92,10 +98,8 @@ public class MainActivity extends ActionBarActivity {
         Kryo k = mClient.getKryo();
         k.setRegistrationRequired(false);
 
-        mTimer = new Timer();
-
         setupActionBar();
-        setTitle("Wonky Tonki");
+        setTitle(R.string.title);
         setup();
     }
 
@@ -108,7 +112,14 @@ public class MainActivity extends ActionBarActivity {
     @Override
     protected void onDestroy() {
         stopRecording();
-        mClient.stop();
+        if (mSendingThread != null) {
+            mSendingThread.interrupt();
+            mSendingThread = null;
+        }
+        if (mClient != null) {
+            mClient.stop();
+        }
+        hideNotification();
         super.onDestroy();
     }
 
@@ -127,8 +138,8 @@ public class MainActivity extends ActionBarActivity {
         NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(this)
                         .setSmallIcon(R.drawable.ic_running)
-                        .setContentTitle("WonkyTonky is running")
-                        .setContentText("Connected and still receiving voice")
+                        .setContentTitle(getString(R.string.notification_running_title))
+                        .setContentText(getString(R.string.notification_running_text))
                         .setContentIntent(pendingIntent)
                         .setOngoing(true);
         // Sets an ID for the notification
@@ -151,61 +162,63 @@ public class MainActivity extends ActionBarActivity {
         final Handler h = new Handler();
 
         mAudioFrame = new AudioFrame();
-        runOnAsyncThread(new Runnable() {
-            @Override
-            public void run() {
-                mClient.start();
-                mClient.addListener(new Listener() {
-                    @Override
-                    public void connected(Connection connection) {
-                        super.connected(connection);
-                        onConnectedToServer();
-                    }
-
-                    @Override
-                    public void disconnected(Connection connection) {
-                        super.disconnected(connection);
-                        onDisconnectedFromServer();
-                        connectClient();
-                    }
-
-                    public void received(Connection connection, Object object) {
-                        super.received(connection, object);
-                        if (object instanceof AudioFrame) {
-                            mAudioFrame = (AudioFrame) object;
-                            final short[] sData = new short[mAudioFrame.bytes.length / 2];
-                            ByteBuffer.wrap(mAudioFrame.bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
-                                        audioPlayer.write(sData, 0, sData.length);
-                                        audioPlayer.flush();
-                                    } else {
-                                        Log.e(LOG_TAG, "Error: AudioRecord.ERROR_INVALID_OPERATION != sData.length");
-                                    }
-                                    setTitle(String.format("%d users connected", mAudioFrame.users));
-                                }
-                            });
-                        }
-                    }
-                });
-
-                connectClient();
-
-                byte[] bytes;
-                try {
-                    while ((bytes = MainActivity.audioBytes.take()) != null) {
-                        AudioFrame frame = new AudioFrame();
-                        frame.bytes = bytes;
-                        frame.time = System.currentTimeMillis();
-                        frame.users = -1;
-                        mClient.sendTCP(frame);
-                    }
-                } catch (InterruptedException e) {
+        if(!mClient.isConnected()) {
+            mClient.addListener(new Listener() {
+                @Override
+                public void connected(Connection connection) {
+                    super.connected(connection);
+                    onConnectedToServer();
                 }
-            }
-        });
+
+                @Override
+                public void disconnected(Connection connection) {
+                    super.disconnected(connection);
+                    onDisconnectedFromServer();
+                    connectToServer();
+                }
+
+                public void received(Connection connection, Object object) {
+                    super.received(connection, object);
+                    if (object instanceof AudioFrame) {
+                        mAudioFrame = (AudioFrame) object;
+                        final short[] sData = new short[mAudioFrame.bytes.length / 2];
+                        ByteBuffer.wrap(mAudioFrame.bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(sData);
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (AudioRecord.ERROR_INVALID_OPERATION != sData.length) {
+                                    audioPlayer.write(sData, 0, sData.length);
+                                    audioPlayer.flush();
+                                } else {
+                                    Log.e(LOG_TAG, "Error: AudioRecord.ERROR_INVALID_OPERATION != sData.length");
+                                }
+                                setTitle(String.format("%d users connected", mAudioFrame.users));
+                            }
+                        });
+                    }
+                }
+            });
+            mSendingThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    connectToServer();
+                    byte[] bytes;
+                    try {
+                        while ((bytes = MainActivity.audioBytes.take()) != null && !Thread.currentThread().isInterrupted()) {
+                            AudioFrame frame = new AudioFrame();
+                            frame.bytes = bytes;
+                            frame.time = System.currentTimeMillis();
+                            frame.users = -1;
+                            mClient.sendTCP(frame);
+                        }
+                    } catch (InterruptedException e) {
+                        Log.d(LOG_TAG, "mSendingThread was interrupted");
+                    }
+                }
+            });
+            mSendingThread.start();
+            connectToServer();
+        }
 
         mButtonTalk.setEnabled(false);
         mButtonTalk.setOnTouchListener(new View.OnTouchListener() {
@@ -215,14 +228,14 @@ public class MainActivity extends ActionBarActivity {
                     case MotionEvent.ACTION_DOWN:
                     case MotionEvent.ACTION_POINTER_DOWN:
                         mButtonTalk.setPressed(true);
-                        mTextViewBottom.setText("Release to stop talking");
+                        mTextViewBottom.setText(R.string.btn_text_release);
                         isRecording = true;
                         startRecording();
                         break;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_POINTER_UP:
                         mButtonTalk.setPressed(false);
-                        mTextViewBottom.setText("Push to talk");
+                        mTextViewBottom.setText(R.string.btn_text_push);
                         isRecording = false;
                         stopRecording();
                         break;
@@ -236,7 +249,7 @@ public class MainActivity extends ActionBarActivity {
         mButtonForceReconnect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                connectClient();
+                connectToServer();
             }
         });
     }
@@ -246,7 +259,7 @@ public class MainActivity extends ActionBarActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mTextViewBottom.setText("Connected!\nPush to talk!");
+                mTextViewBottom.setText(R.string.con_connected);
                 enableButton(mButtonTalk);
                 disableButton(mButtonForceReconnect);
                 showNotification();
@@ -269,16 +282,17 @@ public class MainActivity extends ActionBarActivity {
         });
     }
 
-    private boolean connectClient() {
+    private boolean connectToServer() {
         onConnectingToServer();
         runOnAsyncThread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    mClient.connect(5000, SERVER_ADDRESS, TCP_PORT, UDP_PORT);
+                    mClient.start();
+                    mClient.connect(3000, SERVER_ADDRESS, TCP_PORT, UDP_PORT);
                 } catch (IOException e) {
                     onConnectingFailed();
-                    Log.d(LOG_TAG, "connectClient(): failed", e);
+                    Log.d(LOG_TAG, "connectToServer(): failed", e);
                 }
             }
         });
@@ -290,7 +304,7 @@ public class MainActivity extends ActionBarActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mTextViewBottom.setText("Connection failed\n\u25BC Try again! \u25BC");
+                mTextViewBottom.setText(R.string.con_failed_try_again);
                 disableButton(mButtonTalk);
                 enableButton(mButtonForceReconnect);
             }
@@ -301,7 +315,7 @@ public class MainActivity extends ActionBarActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mTextViewBottom.setText("Connecting...");
+                mTextViewBottom.setText(R.string.con_connecting);
                 disableButton(mButtonTalk);
                 disableButton(mButtonForceReconnect);
                 hideNotification();
@@ -384,6 +398,7 @@ public class MainActivity extends ActionBarActivity {
             isRecording = false;
             recorder.release();
             recorder = null;
+            recordingThread.interrupt();
             recordingThread = null;
         }
     }
