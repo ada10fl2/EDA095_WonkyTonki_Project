@@ -23,20 +23,23 @@ import com.esotericsoftware.kryonet.Listener;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Timer;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 
 public class MainActivity extends ActionBarActivity {
+    private static final BlockingQueue<byte[]> audioBytes = new ArrayBlockingQueue<byte[]>(1000);
 
     private static final int RECORDER_SAMPLERATE = 8000;
     private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
     private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
     private static final int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
     private static final int BytesPerElement = 2; // 2 bytes in 16bit format
-    public static final String LOG_TAG = "WT";
-    //public static final String SERVER_ADDRESS = "192.168.1.45";
-    public static final String SERVER_ADDRESS = "78.73.132.182";
+
+    private static final String LOG_TAG = "WT";
+    private static final String SERVER_ADDRESS = "192.168.0.134";
+    //public static final String SERVER_ADDRESS = "78.73.132.182";
 
     private AudioRecord recorder = null;
     private Thread recordingThread = null;
@@ -44,15 +47,14 @@ public class MainActivity extends ActionBarActivity {
 
     private Button mButtonTalk;
     private TextView mTextViewBottom;
-
-    private CharSequence mTitle;
-    private Button mButtonForceReconnect;
     private TextView mTextViewTop;
+
+    private Button mButtonForceReconnect;
     private Client mClient;
 
-    private static BlockingQueue<byte[]> que = new ArrayBlockingQueue<byte[]>(1000);
-    private static int value = 0;
+
     private AudioFrame mAudioFrame;
+    private Timer mTimer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,6 +69,8 @@ public class MainActivity extends ActionBarActivity {
         mClient = new Client(1024*1024, 1024*1024);
         mClient.getKryo().setRegistrationRequired(false);
 
+        mTimer = new Timer();
+
         setupActionBar();
         setTitle("Wonky Tonki");
     }
@@ -75,7 +79,6 @@ public class MainActivity extends ActionBarActivity {
         ActionBar actionBar = getSupportActionBar();
         actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
         actionBar.setDisplayShowTitleEnabled(true);
-        actionBar.setTitle(mTitle);
     }
 
     @Override
@@ -132,7 +135,7 @@ public class MainActivity extends ActionBarActivity {
 
                     public void received (Connection connection, Object object) {
                         super.received(connection, object);
-                        if(object instanceof AudioFrame){
+                        if(object instanceof AudioFrame) {
                             mAudioFrame = (AudioFrame) object;
                             runOnUiThread(new Runnable() {
                                 @Override
@@ -157,7 +160,7 @@ public class MainActivity extends ActionBarActivity {
 
                 byte[] bytes;
                 try {
-                    while((bytes = que.take()) != null){
+                    while((bytes = MainActivity.audioBytes.take()) != null){
                         AudioFrame frame = new AudioFrame();
                         frame.bytes = bytes;
                         frame.time = System.currentTimeMillis();
@@ -283,7 +286,7 @@ public class MainActivity extends ActionBarActivity {
                 if(isSilentAudioData(sData)) {
                     byte bData[] = short2byte(sData);
                     try {
-                        que.put(bData);
+                        audioBytes.put(bData);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
