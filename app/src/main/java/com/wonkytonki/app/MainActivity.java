@@ -16,6 +16,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryonet.Client;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
@@ -40,6 +41,8 @@ public class MainActivity extends ActionBarActivity {
 
     private static final String LOG_TAG = "WT";
     private static final String SERVER_ADDRESS = "192.168.0.134";
+    public static final int TCP_PORT = 54555;
+    public static final int UDP_PORT = 54777;
     //public static final String SERVER_ADDRESS = "78.73.132.182";
 
     private AudioRecord recorder = null;
@@ -52,7 +55,6 @@ public class MainActivity extends ActionBarActivity {
 
     private Button mButtonForceReconnect;
     private Client mClient;
-
 
     private AudioFrame mAudioFrame;
     private Timer mTimer;
@@ -68,7 +70,8 @@ public class MainActivity extends ActionBarActivity {
         mButtonForceReconnect = (Button) findViewById(R.id.main_btn_reconnect);
 
         mClient = new Client(1024*1024, 1024*1024);
-        mClient.getKryo().setRegistrationRequired(false);
+        Kryo k = mClient.getKryo();
+        k.setRegistrationRequired(false);
 
         mTimer = new Timer();
 
@@ -90,9 +93,6 @@ public class MainActivity extends ActionBarActivity {
 
     private void setup(){
         int bufferSize = AudioRecord.getMinBufferSize(RECORDER_SAMPLERATE, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
-
-        mButtonTalk.setEnabled(false);
-
         final AudioTrack audioPlayer = new AudioTrack(AudioManager.STREAM_MUSIC, 8000, AudioFormat.CHANNEL_CONFIGURATION_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, BufferElements2Rec, AudioTrack.MODE_STREAM);
 
@@ -111,26 +111,13 @@ public class MainActivity extends ActionBarActivity {
                     @Override
                     public void connected(Connection connection) {
                         super.connected(connection);
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                mTextViewBottom.setText("Connected!\nPush to talk!");
-                                mButtonTalk.setEnabled(true);
-                                mButtonForceReconnect.setEnabled(false);
-                            }
-                        });
+                        onConnectedToServer();
                     }
 
                     @Override
                     public void disconnected(Connection connection) {
                         super.disconnected(connection);
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                mTextViewBottom.setText("Disconnected! :(");
-                                mButtonForceReconnect.setEnabled(true);
-                            }
-                        });
+                        onDisconnectedFromServer();
                         connectClient();
                     }
 
@@ -172,35 +159,26 @@ public class MainActivity extends ActionBarActivity {
             }
         });
 
+        mButtonTalk.setEnabled(false);
         mButtonTalk.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
                     case MotionEvent.ACTION_DOWN:
+                    case MotionEvent.ACTION_POINTER_DOWN:
                         mButtonTalk.setPressed(true);
-                        // Start action ...
                         isRecording = true;
-
                         startRecording();
                         mTextViewBottom.setText("Release to stop talking");
                         break;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_POINTER_UP:
-                    case MotionEvent.ACTION_OUTSIDE:
                         mButtonTalk.setPressed(false);
                         isRecording = false;
                         stopRecording();
                         mTextViewBottom.setText("Push to talk");
                         break;
-                    case MotionEvent.ACTION_POINTER_DOWN:
-                        break;
-                    case MotionEvent.ACTION_MOVE:
-                        break;
                     default:
-                        v.setPressed(false);
-                        isRecording = false;
-                        stopRecording();
-                        mTextViewBottom.setText("Push to talk");
                         break;
                 }
                 return true;
@@ -210,17 +188,61 @@ public class MainActivity extends ActionBarActivity {
         mButtonForceReconnect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                runOnAsyncThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        connectClient();
-                    }
-                });
+                connectClient();
+            }
+        });
+    }
+
+    private void onConnectedToServer() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mTextViewBottom.setText("Connected!\nPush to talk!");
+                mButtonTalk.setEnabled(true);
+                mButtonForceReconnect.setEnabled(false);
+            }
+        });
+    }
+
+    private void onDisconnectedFromServer() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mTextViewBottom.setText("Disconnected! :(");
+                mButtonForceReconnect.setEnabled(true);
             }
         });
     }
 
     private boolean connectClient() {
+        onConnectingToServer();
+        runOnAsyncThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    mClient.connect(5000, SERVER_ADDRESS, TCP_PORT, UDP_PORT);
+                } catch (IOException e) {
+                    onConnectingFailed();
+                    Log.d(LOG_TAG, "connectClient(): failed", e);
+                }
+            }
+        });
+        return true;
+
+    }
+
+    private void onConnectingFailed() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mTextViewBottom.setText("Connection failed\n\u25BC Try again! \u25BC");
+                mButtonTalk.setEnabled(false);
+                mButtonForceReconnect.setEnabled(true);
+            }
+        });
+    }
+
+    private void onConnectingToServer() {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -229,26 +251,6 @@ public class MainActivity extends ActionBarActivity {
                 mButtonForceReconnect.setEnabled(false);
             }
         });
-        runOnAsyncThread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    mClient.connect(5000, SERVER_ADDRESS, 54555, 54777);
-                } catch (IOException e) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            mTextViewBottom.setText("Connection failed\n\u25BC Try again! \u25BC");
-                            mButtonTalk.setEnabled(false);
-                            mButtonForceReconnect.setEnabled(true);
-                        }
-                    });
-                    Log.d(LOG_TAG, "Exception:mainserver", e);
-                }
-            }
-        });
-        return true;
-
     }
 
     private void startRecording() {
@@ -298,12 +300,12 @@ public class MainActivity extends ActionBarActivity {
     }
 
     private boolean isSilentAudioData(short[] arr) {
-        //return true;
-        int i = 0;
-        for(short s : arr){
-            i += s;
-        }
-        return i > 10;
+        return true;
+//        int i = 0;
+//        for(short s : arr){
+//            i += s;
+//        }
+//        return i > 10;
     }
 
     private void stopRecording() {
