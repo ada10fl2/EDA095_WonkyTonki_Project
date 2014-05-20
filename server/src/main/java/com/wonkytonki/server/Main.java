@@ -2,10 +2,12 @@ package com.wonkytonki.server;
 
 import com.esotericsoftware.kryonet.*;
 import com.esotericsoftware.kryo.*;
-import com.esotericsoftware.minlog.Log;
+import com.esotericsoftware.minlog.*;
+
+import com.wonkytonki.common.*;
 
 import java.io.*;
-import java.net.InetAddress;
+import java.net.*;
 import java.util.*;
 
 public class Main {
@@ -57,7 +59,9 @@ public class Main {
             }
         });
 
-        System.out.printf("Server running on %s:%s%n", InetAddress.getLocalHost().getCanonicalHostName(), TCP_PORT);
+        InetAddress local = InetAddress.getLocalHost();
+        System.out.printf("Server running on %s(%s):%s%n", local.getCanonicalHostName(),
+                local.getHostAddress() ,TCP_PORT);
     }
 
     public static class MyLogger extends Log.Logger {
