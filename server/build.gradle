@@ -12,15 +12,13 @@ buildscript {
     }
 }
 
-mainClassName = "com.wonkytonki.server.Main"
-
 repositories {
     mavenCentral()
  }
 
 jar {
     baseName = 'wonky-tonki-server'
-    version =  '0.0.1'
+    version =  '1.0.0'
     manifest {
         attributes 'Main-Class': 'com.wonkytonki.server.Main'
     }
@@ -33,7 +31,7 @@ task awesomeJar(type: OneJar) {
 
 dependencies {
     compile fileTree(dir: 'libs', include: '*.jar')
-    testCompile "junit:junit:+"
+    testCompile "junit:junit:4.12"
 }
 
 task wrapper(type: Wrapper) {
