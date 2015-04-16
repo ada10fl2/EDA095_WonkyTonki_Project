@@ -1,7 +1,16 @@
-EDA095_Project
-==============
+# Wonki Tonkiew - EDA095 Project
 
-Structure: 
- * /app/ - Android App
- * /server/ - Java server
+## Getting started
+1. Start server on a local network.
+2. Start app on the same network.
 
+## Project structure
+ * `/app/` - Android App
+ * `/server/` - Java server
+
+## Server
+
+## Android App
+### Getting started 
+1. `gradlew app:assembleRelease`
+2. Install on phone
