@@ -1,4 +1,5 @@
-# Wonki Tonkiew - EDA095 Project
+# WonkyTonki - EDA095 Project
+A walkie talkie system
 
 ## Getting started
 1. Start server on a local network.
@@ -13,6 +14,7 @@
 1. `gradlew :server:run`
 
 or:
+
 1. `gradlew :server:awesomeJar`
 2. `java -jar server/build/libs/com.wonkytonki.server.jar`
 
