@@ -9,8 +9,15 @@
  * `/server/` - Java server
 
 ## Server
+### Getting started
+1. `gradlew :server:run`
+
+or:
+1. `gradlew :server:awesomeJar`
+2. `java -jar server/build/libs/com.wonkytonki.server.jar`
 
 ## Android App
-### Getting started 
-1. `gradlew app:assembleRelease`
-2. Install on phone
+### Getting started
+
+1. `gradlew app:assembleDebug`
+2. `gradlew app:installDebug`
