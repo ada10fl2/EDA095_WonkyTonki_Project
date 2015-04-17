@@ -1,8 +1,10 @@
 # WonkyTonki - EDA095 Project
 A walkie talkie system
-
-![sceenshot app round button middle text WT](https://cdn.rawgit.com/ada10fl2/EDA095_WonkyTonki_Project/master/assets/WonkyTonkiScreenshot.jpg "WonkiTonki screenshot")
-
+<p>
+  <a href="#">
+    <img src="https://cdn.rawgit.com/ada10fl2/EDA095_WonkyTonki_Project/master/assets/WonkyTonkiScreenshot.jpg" height="400px">
+  <a>
+</p>
 ## Getting started
 1. Start server on a local network.
 2. Start app on the same network.
